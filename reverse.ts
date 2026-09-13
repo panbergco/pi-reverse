@@ -30,8 +30,8 @@ class Reversed extends Container {
 	private readonly mirrors = new WeakMap<Component, Reversed>();
 	/** The chat-log mirror nested inside this one (document level only). */
 	inner: Reversed | undefined;
-	/** Children present when the layout was applied (startup banner) stay in original order. */
-	private pivot = -1;
+	/** Children before the first question (the startup banner) keep their order. */
+	private pivot = 0;
 
 	constructor(
 		private readonly source: Container,
@@ -69,7 +69,10 @@ class Reversed extends Container {
 
 	private sync(): void {
 		const src = this.source.children;
-		if (this.pivot < 0 || src.length < this.pivot) this.pivot = this.deep ? 0 : src.length;
+		// Everything before the first question is the startup banner: it keeps its order and stays at
+		// the far end. A resumed session has its whole transcript after that point, so it is grouped
+		// into turns like any other.
+		this.pivot = this.deep ? 0 : Math.max(0, src.findIndex((child) => isQuestion(child)));
 		const body = src.slice(this.pivot).map((child, index, all) => {
 			// The chat log is the document's last child: mirror it too, one level down.
 			if (!this.deep || index !== all.length - 1 || !(child instanceof Container)) return child;
