@@ -47,10 +47,9 @@ warning instead of half-applying.
 
 ## Long answers get one screenful
 
-The newest answer gets **70% of the pane**, so the next pair stays in sight below it; **older pairs
-shrink to a 6-line preview**, so several
-question/answer pairs fit on one screen and it stays easy to focus on one of them. Both heights are
-settings (`answer-lines`, `older-lines`). Heights are measured from the terminal on every frame, so
+**Every answer gets 70% of the pane**, so each pair is one readable block and the next one stays in
+sight below it. Both heights are settings (`answer-lines` for all answers, `older-lines` to give
+older pairs a shorter preview instead). Heights are measured from the terminal on every frame, so
 splitting or resizing a tmux pane resizes the windows with it — down to a 5-line floor, below which
 the transcript simply scrolls.
 
@@ -61,7 +60,8 @@ inside it — scroll back to the bottom and it follows again.
 
 **Where the wheel goes is decided by the pointer**, like two panes side by side: on the **left half**
 of the terminal it scrolls *inside* the answer, on the **right half** it scrolls the transcript. No
-mode, no focus, no trapping — move the mouse and you are in the other scroll. `wheel-zone right`
+mode, no focus — move the mouse and you are in the other scroll. Reaching the end of an answer
+**stops there**; the transcript does not grab the wheel mid-gesture (`wheel-chain on` restores it). `wheel-zone right`
 swaps the sides, `full` gives the whole width to the answer, `off` leaves the wheel to pi.
 
 **Mouse wheel inside an answer needs pi ≥ the fix in
@@ -81,8 +81,9 @@ transcript; the keyboard controls above work everywhere.
 | `status-bar` | `above-prompt` `below-prompt` | `above-prompt` | status bar side |
 | `spinner` | `below-prompt` `above-prompt` | `below-prompt` | where the working spinner and queued messages go |
 | `answer-lines` | `70%`, `screen`, or `3..200` | `70%` | height of the newest answer |
-| `older-lines` | `same` or `3..200` | `6` | height of answers in older pairs |
+| `older-lines` | `same` or `3..200` | `same` | height of answers in older pairs |
 | `wheel-zone` | `left` `right` `full` `off` | `left` | which half of the pane scrolls inside an answer |
+| `wheel-chain` | `on` `off` | `off` | pass the wheel to the transcript at an answer's end |
 | `sticky-question` | `on` `off` | `on` | keep the question on screen once it scrolls away |
 | `turn-divider` | `on` `off` | `on` | rule between Q&A pairs |
 | `follow-tail` | `on` `off` | `on` | chase a streaming answer instead of letting it grow past the fold |

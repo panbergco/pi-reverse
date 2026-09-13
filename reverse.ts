@@ -208,6 +208,8 @@ class Windowed implements Component {
 		private readonly inner: Container,
 		/** Which half of the pane owns the wheel for this window. */
 		private readonly zone: () => "left" | "right" | "full" | "off",
+		/** Whether the far end of this window passes the wheel on to the transcript. */
+		private readonly chain: () => boolean,
 		/** Final window height; receives what this turn already spends above the window. */
 		private readonly maxLines: (reserve: number) => number,
 		private readonly style: (text: string) => string,
@@ -300,10 +302,12 @@ class Windowed implements Component {
 
 	handleMouse(event: TuiMouseEvent) {
 		// Wheel up (negative delta) walks back into the hidden part; wheel down returns to the end.
-		// The wheel belongs to this window only in its half of the pane, and only while it has room:
-		// at either end the event is left alone so the transcript scrolls instead.
+		// The wheel belongs to this window in its half of the pane. Reaching the end stops there:
+		// the transcript does not take over mid-gesture unless chaining is switched on.
 		if (event.type === "wheel" && event.wheelDelta && this.ownsWheel(event.x, event.width)) {
-			return this.scrollByLines(event.wheelDelta) ? { handled: true } : undefined;
+			const moved = this.scrollByLines(event.wheelDelta);
+			if (moved || (this.clipped && !this.chain())) return { handled: true };
+			return undefined;
 		}
 		return this.inner.handleMouse?.({ ...event, y: event.y - this.lead + this.start });
 	}
@@ -434,7 +438,13 @@ function applyLayout(
 	const window =
 		config.answerWindow === "screen"
 			? (answer: Component, newest: boolean) =>
-					new Windowed(answer as Container, () => config.wheelZone, height(newest), dim)
+					new Windowed(
+						answer as Container,
+						() => config.wheelZone,
+						() => config.wheelChain === "on",
+						height(newest),
+						dim,
+					)
 			: undefined;
 	const mirror = newestFirst ? new Reversed(document, true, divider, window) : undefined;
 	const transcript = new ScrollView(mirror ?? document, {
@@ -493,6 +503,7 @@ const USAGE = [
 	"/reverse answer-lines 70%|screen|3..200   height of the newest answer",
 	"/reverse older-lines same|3..200      height of answers in older pairs",
 	"/reverse wheel-zone left|right|full|off  which half of the pane scrolls inside an answer",
+	"/reverse wheel-chain on|off           pass the wheel to the transcript at an answer's end",
 	"/reverse follow-tail on|off      keep a streaming answer's last line in view",
 	"/reverse tail-margin 0..5        slack kept below that line",
 	"/reverse pad-outer 0..5          blank lines at the screen edge",
@@ -512,6 +523,7 @@ const KEYS: Record<string, keyof ReverseConfig> = {
 	"answer-lines": "answerLines",
 	"older-lines": "olderLines",
 	"wheel-zone": "wheelZone",
+	"wheel-chain": "wheelChain",
 	"pad-outer": "padOuter",
 	"pad-transient": "padTransient",
 	"follow-tail": "followTail",
@@ -622,7 +634,7 @@ export default function (pi: ExtensionAPI) {
 		handler: async (args, ctx) => {
 			const [rawKey, rawValue] = String(args ?? "").trim().split(/\s+/);
 			const describe = () =>
-				`pi-reverse: dock ${config.dock} · order ${config.order} · status-bar ${config.statusBar} · spinner ${config.spinner} · sticky-question ${config.stickyQuestion} · turn-divider ${config.turnDivider} · follow-tail ${config.followTail} · tail-margin ${config.tailMargin} · pad-outer ${config.padOuter} · pad-transient ${config.padTransient} · answer-window ${config.answerWindow} · answer-lines ${config.answerLines} · older-lines ${config.olderLines} · wheel-zone ${config.wheelZone}`;
+				`pi-reverse: dock ${config.dock} · order ${config.order} · status-bar ${config.statusBar} · spinner ${config.spinner} · sticky-question ${config.stickyQuestion} · turn-divider ${config.turnDivider} · follow-tail ${config.followTail} · tail-margin ${config.tailMargin} · pad-outer ${config.padOuter} · pad-transient ${config.padTransient} · answer-window ${config.answerWindow} · answer-lines ${config.answerLines} · older-lines ${config.olderLines} · wheel-zone ${config.wheelZone} · wheel-chain ${config.wheelChain}`;
 
 			if (!rawKey) {
 				ctx.ui.notify(`${describe()}\n\n${USAGE}`, "info");

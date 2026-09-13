@@ -84,11 +84,11 @@ assert.equal(sanitize({}).answerLines, "70%");
 assert.equal(sanitize({ answerLines: "50%" }).answerLines, "50%");
 assert.equal(sanitize({ answerLines: "5%" }).answerLines, "70%");   // below the floor
 assert.equal(sanitize({ answerLines: "screen" }).answerLines, "screen");
-assert.equal(sanitize({}).olderLines, 6);
+assert.equal(sanitize({}).olderLines, "same");   // every pair gets the same share by default
 assert.equal(sanitize({ answerLines: 12 }).answerLines, 12);
 assert.equal(sanitize({ answerLines: 1 }).answerLines, "70%");      // below the floor
-assert.equal(sanitize({ olderLines: "same" }).olderLines, "same");
-assert.equal(sanitize({ olderLines: 999 }).olderLines, 6);
+assert.equal(sanitize({ olderLines: 8 }).olderLines, 8);
+assert.equal(sanitize({ olderLines: 999 }).olderLines, "same");
 
 console.log("pi-reverse: answer height checks passed");
 
@@ -98,3 +98,9 @@ assert.equal(sanitize({ wheelZone: "right" }).wheelZone, "right");
 assert.equal(sanitize({ wheelZone: "sideways" }).wheelZone, "left");
 
 console.log("pi-reverse: wheel zone checks passed");
+
+// --- reaching the end of an answer stops there by default ---
+assert.equal(sanitize({}).wheelChain, "off");
+assert.equal(sanitize({ wheelChain: "on" }).wheelChain, "on");
+
+console.log("pi-reverse: wheel chain checks passed");
