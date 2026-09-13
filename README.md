@@ -99,7 +99,8 @@ text that happens to be next to other text. The rule is labelled with when the q
 answer never carries a time, so the seam can no longer be confused with one — and when a turn follows
 a long pause the label says so instead (`4h later · 08:14`), which is how you find where you picked
 the session back up. A turn whose time cannot be established reads `time unknown` rather than
-guessing. The rule is drawn heavy and in the theme accent, the time in bright white, so the seam
+guessing. Resumed and compacted sessions match each visible question back to its session record by
+text (newest match first), rather than indexing a partial display into the full timestamp history. The rule is drawn heavy and in the theme accent, the time in bright white, so the seam
 outranks every border that appears *inside* an answer — `divider-style line` for the thin version.
 
 Startup output (the banner, context and resource lists) is not a turn: it keeps its own order and
