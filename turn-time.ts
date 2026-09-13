@@ -83,7 +83,11 @@ export class QuestionTimes {
 			if (!pool) return { at: undefined, previous: undefined };
 			const next = (cursor.get(key) ?? pool.length) - 1;
 			cursor.set(key, next);
-			return next >= 0 ? pool[next] : { at: undefined, previous: undefined };
+			const hit = next >= 0 ? pool[next] : undefined;
+			// A COPY, not the stored entry. The old code handed out an object it had just removed from
+			// the pool, so a caller writing to it harmed nothing; this index keeps its entries, and
+			// handing out a reference would let one careless consumer corrupt every later frame.
+			return hit === undefined ? { at: undefined, previous: undefined } : { at: hit.at, previous: hit.previous };
 		});
 	}
 }
