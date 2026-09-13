@@ -51,3 +51,22 @@ export function nextTurnOffset(offsets: readonly number[], scrollTop: number, st
 	return target >= 0 && target < offsets.length ? offsets[target] : undefined;
 }
 
+
+/**
+ * Who acts on a wheel event: the window under the pointer, or the transcript behind it.
+ *
+ * `wheel-chain off` exists so reaching the end of an answer does not fling the transcript away in
+ * the middle of a gesture. Absorbing EVERY event at that edge does more than that: a window resting
+ * at its edge under the pointer owns that half of the pane for good, and the reader cannot scroll
+ * back to the prompt at all. One event is absorbed, and the rest pass through.
+ */
+export function wheelGoesTo(
+	moved: boolean,
+	clipped: boolean,
+	chains: boolean,
+	blocked: number,
+): "window" | "transcript" {
+	if (moved) return "window";
+	if (!clipped || chains) return "transcript";
+	return blocked < 1 ? "window" : "transcript";
+}

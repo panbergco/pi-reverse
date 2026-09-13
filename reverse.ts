@@ -22,7 +22,7 @@ import {
 import { configFile, DEFAULTS, dockOrder, type ReverseConfig, readConfig, sanitize } from "./config.ts";
 import { dividerLabel, ruleTo, windowEdgeLabels } from "./reverse-label.ts";
 import { messageText, type QuestionRecord, QuestionTimes } from "./turn-time.ts";
-import { groupTurns, isQuestion, nextTurnOffset, reverseTurns } from "./turns.ts";
+import { groupTurns, isQuestion, nextTurnOffset, reverseTurns, wheelGoesTo } from "./turns.ts";
 
 /** pi mounts exactly these regions, in this order (interactive-mode init). */
 const REGIONS = ["document", "pending", "status", "widgetsAbove", "editor", "widgetsBelow", "footer"] as const;
@@ -310,6 +310,9 @@ class Windowed implements Component {
 	/** Set while this window's own state changed, so the mirror re-renders it even if off screen. */
 	dirty = true;
 
+	/** Consecutive wheel events that could not move this window — one is absorbed, the rest pass on. */
+	private blocked = 0;
+
 	/** Move the window by whole lines; returns false at either end so the transcript can take over. */
 	scrollByLines(delta: number): boolean {
 		if (!this.clipped || delta === 0) return false;
@@ -408,7 +411,13 @@ class Windowed implements Component {
 		if (event.type === "wheel") {
 			if (!event.wheelDelta || !this.ownsWheel(event.x, event.width)) return undefined;
 			const moved = this.scrollByLines(event.wheelDelta);
-			return moved || (this.clipped && !this.chain()) ? { handled: true } : undefined;
+			this.blocked = moved ? 0 : this.blocked + 1;
+			// At an edge one event is absorbed so the gesture does not fling the transcript away, and
+			// everything after it passes through — otherwise a window resting at its edge under the
+			// pointer owns that half of the pane for good, and the prompt cannot be reached again.
+			return wheelGoesTo(moved, this.clipped, this.chain(), this.blocked - 1) === "window"
+				? { handled: true }
+				: undefined;
 		}
 		return this.inner.handleMouse?.({ ...event, y: event.y - this.lead + this.start });
 	}
@@ -593,7 +602,13 @@ function applyLayout(
 				content as Container,
 				fromTop,
 				() => config.wheelZone,
-				() => config.wheelChain === "on",
+				// A QUESTION ALWAYS HANDS THE WHEEL BACK AT ITS EDGES. `wheel-chain off` exists so that
+				// reaching the end of an ANSWER does not fling the transcript away mid-gesture — one
+				// window per turn, with ordinary rows around it to scroll from. Applying it to the
+				// question as well left the pointer's half covered by windows end to end, each swallowing
+				// the wheel at its own edge: the transcript could no longer be moved at all, and the
+				// prompt became unreachable without submitting.
+				fromTop ? () => true : () => config.wheelChain === "on",
 				measure(newest),
 				dim,
 			);
