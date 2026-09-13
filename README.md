@@ -1,5 +1,8 @@
 # pi-reverse
 
+> **Current release: v0.15** — Q&A turn stack, 70% answer windows, split inner/outer wheel,
+> correct timestamps on resumed sessions, stable pair geometry, and long-session caching.
+
 Reverse mode for the [pi coding agent](https://pi.dev): **input pinned to the top**, Q&A pairs
 stacked **downward, newest first**, each pair still read normally — question, then its answer.
 
@@ -83,9 +86,23 @@ this is display only.
 
 ## Install
 
+From GitHub:
+
+```bash
+pi install git:github.com/panbergco/pi-reverse
+```
+
+Or from a local checkout:
+
 ```bash
 pi install ~/Code/pi-reverse          # adds it to settings
-pi -e ~/Code/pi-reverse               # or load once, nothing written
+pi -e ~/Code/pi-reverse               # load once, nothing written
+```
+
+The installer sets up the extension and fullscreen mode in one step:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/panbergco/pi-reverse/main/install.sh | bash
 ```
 
 Requires fullscreen TUI mode: `{"tuiMode": "fullscreen"}` in `~/.pi/agent/settings.json`, or
