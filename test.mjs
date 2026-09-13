@@ -204,6 +204,19 @@ undetected.sync(before);
 undetected.sync(middleOnly);
 assert.equal(undetected.match(["BETA"])[0].at, undefined);
 
+// A caller that writes to what it was handed must not corrupt the index behind it.
+const shared = new QuestionTimes();
+shared.sync([{ text: "go", at: 1000 }]);
+shared.match(["go"])[0].at = 999_999;
+assert.equal(shared.match(["go"])[0].at, 1000);
+
+// Replacement of the same length, detected by its newest stamp rather than by its count.
+const swapped = new QuestionTimes();
+swapped.sync([{ text: "A", at: 1 }, { text: "B", at: 2 }]);
+swapped.sync([{ text: "A", at: 1 }, { text: "C", at: 3 }]);
+assert.equal(swapped.match(["B"])[0].at, undefined);
+assert.equal(swapped.match(["C"])[0].at, 3);
+
 console.log("pi-reverse: question index checks passed (200 differential trials)");
 
 // --- regression: invalidating a long transcript must not throw away every off-screen row ---
