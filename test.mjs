@@ -46,8 +46,9 @@ assert.deepEqual(reverseTurns(log).map((c) => c.label), ["·", "Q2", "A2", "Q1",
 const streaming = [q("Q1"), a("A1"), q("Q2")];
 assert.deepEqual(reverseTurns(streaming).map((c) => c.label), ["Q2", "Q1", "A1"]);
 
-// No questions yet (startup banner only) → plain reversal.
-assert.deepEqual(reverseTurns([a("x"), a("y")]).map((c) => c.label), ["y", "x"]);
+// No questions yet (startup banner only): left exactly as it is — no reversal, no rules between
+// the pieces of the banner.
+assert.deepEqual(reverseTurns([a("x"), a("y")]).map((c) => c.label), ["x", "y"]);
 
 console.log("pi-reverse: turn grouping checks passed");
 

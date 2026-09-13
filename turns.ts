@@ -18,8 +18,9 @@ export function reverseTurns(children: readonly Renderable[]): Renderable[] {
 
 /** Turns in chronological order; the last one is the newest (the one being answered). */
 export function groupTurns(children: readonly Renderable[]): Renderable[][] {
-	// No question yet (startup banner): every child is its own group, so the whole log simply reverses.
-	if (!children.some(isQuestion)) return children.map((child) => [child]);
+	// No question yet (startup banner): one group, so nothing is reversed and no rule is drawn
+	// between pieces of the banner.
+	if (!children.some(isQuestion)) return children.length > 0 ? [[...children]] : [];
 	const turns: Renderable[][] = [];
 	let current: Renderable[] = [];
 	for (const child of children) {
