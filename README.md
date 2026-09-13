@@ -21,6 +21,49 @@ closed out-of-scope, Dec 2025).
 
 It is a plain pi extension — no fork, no patched install, survives `pi update`.
 
+---
+
+## Why
+
+### 1. Your eyes belong at the top of the screen
+
+The prompt lives at the bottom of a terminal because that is where a shell leaves the cursor, not
+because it is a good place to look. On a tall window you spend the day glancing down at the last
+two rows, and the taller the terminal the worse the angle — which is also why people size their
+terminal around the input instead of around the work.
+
+pi-reverse pins the input near the top. You read straight ahead, the box never moves while a reply
+streams, and the status bar sits with it.
+
+![Prompt at the top, newest pair beneath it](docs/img/1-eye-level.png)
+
+### 2. In a long session, the question is gone
+
+This is the part that actually hurts. A reply runs for 200 lines; by the time you are reading the
+end of it, the question that produced it left the screen long ago. Scroll back and you lose your
+place in the answer. Scroll forward and you lose the question again.
+
+Below is a real session in stock pi: sixty lines into an answer, nothing on screen tells you what
+was asked, and the input box is at the very bottom.
+
+![Stock pi: an answer with no question in sight](docs/img/2-stock-lost.png)
+
+### 3. Question and answer stay one block
+
+The same session in pi-reverse. Each turn is a unit: the question, then its answer capped at ~70%
+of the pane with `⋯ 135 lines above` marking what is folded, then a rule, then the previous turn.
+Two complete exchanges fit on one screen. Scroll inside an answer on the left half of the pane;
+scroll through the stack on the right half. Nothing loses its question.
+
+![pi-reverse: pairs kept together, newest first](docs/img/3-pairs-kept.png)
+
+Old sessions open like this too — `pi --session <file>` on a months-old transcript and it is
+suddenly scannable, pair by pair, without reading it bottom-up. The session file is never modified;
+this is display only.
+
+---
+
+
 ## Install
 
 ```bash
