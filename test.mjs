@@ -133,6 +133,23 @@ assert.equal(atStart[0], "");
 assert.match(inMiddle[0], /20 lines above/);
 assert.match(inMiddle[1], /20 below/);
 
+// A long question is capped too, so it cannot squeeze its answer down to the floor. Its unread
+// part is BELOW it, so that is where the hint goes, and it never claims to be following a stream.
+const asked = windowEdgeLabels(0, 35, "wheel on the left half", true);
+assert.equal(asked[0], "");
+assert.match(asked[1], /35 more lines/);
+assert.match(asked[1], /alt\+e expands/);
+assert.doesNotMatch(asked[1], /follow again/);
+const askedScrolled = windowEdgeLabels(12, 20, "wheel on the left half", true);
+assert.match(askedScrolled[0], /12 lines above/);
+assert.equal(askedScrolled.length, 2);
+// The answer keeps its own wording.
+assert.match(windowEdgeLabels(40, 3, "wheel on the left half")[1], /follow again/);
+assert.equal(sanitize({}).questionLines, "40%");
+assert.equal(sanitize({ questionLines: "full" }).questionLines, "full");
+assert.equal(sanitize({ questionLines: 9 }).questionLines, 9);
+assert.equal(sanitize({ questionLines: "nonsense" }).questionLines, "40%");
+
 console.log("pi-reverse: fixed-height answer window checks passed");
 
 // --- resumed/compacted sessions match timestamps by question, never by partial display index ---

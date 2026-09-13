@@ -152,6 +152,13 @@ older pairs a shorter preview instead). Heights are measured from the terminal o
 splitting or resizing a tmux pane resizes the windows with it — down to a 5-line floor, below which
 the transcript simply scrolls.
 
+**A long question cannot squeeze its answer.** The pair's height is split: the question takes at most
+`question-lines` of it (40% by default) and the answer keeps the rest. Before this, a 35-line paste
+left the answer at its 5-line floor. Each half clips independently with its own marker and its own
+inner scroll, so the wheel scrolls whichever half the pointer is over. A question rests at its FIRST
+line (that is where reading it starts) while an answer rests at its last. `question-lines full`
+restores the old uncapped behaviour.
+
 A clipped answer always reserves one marker row above and below its text, even when one marker is
 blank at an edge. Inner scrolling therefore never moves the next Q&A pair by a line.
 
@@ -204,7 +211,8 @@ agent directory.
 | `order` | `newest-first` `oldest-first` | `newest-first` | transcript direction |
 | `status-bar` | `above-prompt` `below-prompt` | `above-prompt` | status bar side |
 | `spinner` | `below-prompt` `above-prompt` | `below-prompt` | where the working spinner and queued messages go |
-| `answer-lines` | `70%`, `screen`, or `3..200` | `70%` | height of the newest answer |
+| `answer-lines` | `70%`, `screen`, or `3..200` | `70%` | height of a whole Q&A pair |
+| `question-lines` | `full`, `40%`, or `3..200` | `40%` | most of that pair the question may take |
 | `older-lines` | `same` or `3..200` | `same` | height of answers in older pairs |
 | `wheel-zone` | `left` `right` `full` `off` | `left` | which half of the pane scrolls inside an answer |
 | `wheel-chain` | `on` `off` | `off` | pass the wheel to the transcript at an answer's end |

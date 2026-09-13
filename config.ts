@@ -33,6 +33,8 @@ export interface ReverseConfig {
 	answerWindow: "screen" | "off";
 	/** Height of the newest answer: a share of the viewport ("70%"), a line count, or "screen". */
 	answerLines: "screen" | `${number}%` | number;
+	/** Largest share of a pair's height the QUESTION may take, so a long paste cannot starve its answer. */
+	questionLines: "full" | `${number}%` | number;
 	/** Height of answers in older pairs; "same" gives every pair the same share. */
 	olderLines: "same" | number;
 	/** Which half of the pane scrolls inside an answer; the other half scrolls the transcript. */
@@ -56,6 +58,7 @@ export const DEFAULTS: ReverseConfig = {
 	spinner: "below-prompt",
 	answerWindow: "screen",
 	answerLines: "70%",
+	questionLines: "40%",
 	olderLines: "same",
 	wheelZone: "left",
 	wheelChain: "off",
@@ -107,7 +110,7 @@ export function sanitize(raw: unknown): ReverseConfig {
 		return Number.isInteger(value) && value >= 0 && value <= 5 ? value : DEFAULTS[key];
 	};
 	// "screen"/"same" or a line count; anything else falls back to the default.
-	const lines = <K extends "answerLines" | "olderLines">(key: K, keyword: string): ReverseConfig[K] => {
+	const lines = <K extends "answerLines" | "olderLines" | "questionLines">(key: K, keyword: string): ReverseConfig[K] => {
 		const value = input[key];
 		if (value === keyword || value === "screen") return value as ReverseConfig[K];
 		if (typeof value === "string" && /^\d{1,3}%$/.test(value)) {
@@ -133,6 +136,7 @@ export function sanitize(raw: unknown): ReverseConfig {
 		spinner: pick("spinner", ["below-prompt", "above-prompt"]),
 		answerWindow: pick("answerWindow", ["screen", "off"]),
 		answerLines: lines("answerLines", "screen"),
+		questionLines: lines("questionLines", "full"),
 		olderLines: lines("olderLines", "same"),
 		wheelZone: pick("wheelZone", ["left", "right", "full", "off"]),
 		wheelChain: pick("wheelChain", ["on", "off"]),

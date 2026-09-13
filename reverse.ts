@@ -43,12 +43,15 @@ class Reversed extends Container {
 		private readonly divider?: (turnsNewestFirst: Component[][]) => Component[],
 		/** Optional window around each answer; newest and older turns can differ. */
 		private readonly window?: (answer: Component, newest: boolean) => Component,
+		/** Optional cap on the question half, so a long paste cannot squeeze its answer out. */
+		private readonly questionWindow?: (asked: Component, newest: boolean) => Component,
 	) {
 		super();
 	}
 
 	/** Windows survive re-syncs so their scroll position is not reset on every frame. */
 	private readonly windows = new WeakMap<Component, Component>();
+	private readonly questions = new WeakMap<Component, Component>();
 	/** The newest turn's answer window — what alt+e expands and the wheel scrolls. */
 	newestWindow: Windowed | undefined;
 	/** Line offset of that window inside the transcript content. */
@@ -83,7 +86,7 @@ class Reversed extends Container {
 			if (!this.deep || index !== all.length - 1 || !(child instanceof Container)) return child;
 			let mirror = this.mirrors.get(child);
 			if (!mirror) {
-				mirror = new Reversed(child, false, this.divider, this.window);
+				mirror = new Reversed(child, false, this.divider, this.window, this.questionWindow);
 				this.mirrors.set(child, mirror);
 			}
 			this.inner = mirror;
@@ -116,7 +119,7 @@ class Reversed extends Container {
 		this.children = [...children, ...src.slice(0, this.pivot)];
 	}
 
-	/** Question stays as it is; everything after it in the turn shares one window. */
+	/** The question gets its own window too, so a long one cannot squeeze its answer to nothing. */
 	private windowed(turn: Component[], newest: boolean): Component[] {
 		if (!this.window) return turn;
 		const split = turn.findIndex((child) => isQuestion(child)) + 1;
@@ -131,7 +134,23 @@ class Reversed extends Container {
 		} else if (box instanceof Windowed) {
 			box.setAnswer(turn.slice(split));
 		}
-		return [...turn.slice(0, split), box];
+		return [...this.asked(turn.slice(0, split), newest), box];
+	}
+
+	/** The question half of the pair, capped when a factory is given and left whole when it is not. */
+	private asked(head: Component[], newest: boolean): Component[] {
+		if (!this.questionWindow || head.length === 0) return head;
+		const key = head[0];
+		let box = this.questions.get(key);
+		if (!box) {
+			const asked = new Container();
+			asked.children = head;
+			box = this.questionWindow(asked, newest);
+			this.questions.set(key, box);
+		} else if (box instanceof Windowed) {
+			box.setAnswer(head);
+		}
+		return [box];
 	}
 
 	override render(width: number): string[] {
@@ -264,6 +283,8 @@ class Windowed implements Component {
 
 	constructor(
 		private readonly inner: Container,
+		/** A question is read from its FIRST line; an answer from its last. */
+		private readonly fromTop: boolean,
 		/** Which half of the pane owns the wheel for this window. */
 		private readonly zone: () => "left" | "right" | "full" | "off",
 		/** Whether the far end of this window passes the wheel on to the transcript. */
@@ -292,10 +313,11 @@ class Windowed implements Component {
 	/** Move the window by whole lines; returns false at either end so the transcript can take over. */
 	scrollByLines(delta: number): boolean {
 		if (!this.clipped || delta === 0) return false;
-		const current = this.anchor ?? this.maxStart;
+		const current = this.anchor ?? (this.fromTop ? 0 : this.maxStart);
 		const next = Math.min(this.maxStart, Math.max(0, current + delta));
 		if (next === current) return false;
-		this.anchor = next >= this.maxStart ? undefined : next;
+		// "Unanchored" means the window's resting end: the top for a question, the tail for an answer.
+		this.anchor = this.fromTop ? (next <= 0 ? undefined : next) : next >= this.maxStart ? undefined : next;
 		this.dirty = true;
 		return true;
 	}
@@ -349,10 +371,12 @@ class Windowed implements Component {
 		const maxStart = lines.length - max;
 		this.maxStart = maxStart;
 		// Following the end unless the reader scrolled: then their line stays put while text arrives.
-		const start = this.anchor === undefined ? maxStart : Math.min(this.anchor, maxStart);
+		// A question instead rests at its first line, which is where reading it starts.
+		const start =
+			this.anchor === undefined ? (this.fromTop ? 0 : maxStart) : Math.min(this.anchor, maxStart);
 		this.start = start;
 		const hiddenBelow = lines.length - start - max;
-		const [above, below] = windowEdgeLabels(start, hiddenBelow, this.wheelHint());
+		const [above, below] = windowEdgeLabels(start, hiddenBelow, this.wheelHint(), this.fromTop);
 		// Both rows stay present at every inner-scroll position. Before this, entering the middle added
 		// a second marker row and pushed the next Q&A pair down one line; reaching an edge removed it.
 		const head = above ? this.style(above) : "";
@@ -534,26 +558,39 @@ function applyLayout(
 	const screenful = () => Math.max(4, tui.terminal.rows - dockRows);
 	// The newest pair gets room to be read; older pairs shrink to a preview so one pair is easy to
 	// focus on and the rest stay scannable.
-	const height = (newest: boolean): ((reserve: number) => number) => {
+	// How much of the pane one whole pair may take, before it is divided between question and answer.
+	const pairBudget = (newest: boolean): number => {
 		const setting = newest || config.olderLines === "same" ? config.answerLines : config.olderLines;
-		if (typeof setting === "number") return () => setting;
-		if (setting === "screen") return (reserve) => screenful() - reserve;
+		if (typeof setting === "number") return setting;
+		if (setting === "screen") return screenful();
 		// A share of the viewport, so the next pair stays in sight below the one being read.
-		const percent = Number.parseInt(setting, 10) / 100;
-		return (reserve) => Math.round(screenful() * percent) - reserve;
+		return Math.round((screenful() * Number.parseInt(setting, 10)) / 100);
 	};
-	const window =
-		config.answerWindow === "screen"
-			? (answer: Component, newest: boolean) =>
-					new Windowed(
-						answer as Container,
-						() => config.wheelZone,
-						() => config.wheelChain === "on",
-						height(newest),
-						dim,
-					)
-			: undefined;
-	const mirror = newestFirst ? new Reversed(document, true, divider, window) : undefined;
+	const height = (newest: boolean): ((reserve: number) => number) => (reserve) => pairBudget(newest) - reserve;
+	// The question's ceiling is a share of the PAIR, not of the screen: whatever it does not use goes
+	// to the answer, and whatever it would have overrun is what used to squeeze the answer to nothing.
+	const askedHeight = (newest: boolean): ((reserve: number) => number) => {
+		const setting = config.questionLines;
+		if (setting === "full") return () => Number.MAX_SAFE_INTEGER;
+		if (typeof setting === "number") return () => setting;
+		const percent = Number.parseInt(setting, 10) / 100;
+		return (reserve) => Math.round(pairBudget(newest) * percent) - reserve;
+	};
+	const boxed =
+		(measure: (newest: boolean) => (reserve: number) => number, fromTop: boolean) =>
+		(content: Component, newest: boolean) =>
+			new Windowed(
+				content as Container,
+				fromTop,
+				() => config.wheelZone,
+				() => config.wheelChain === "on",
+				measure(newest),
+				dim,
+			);
+	const window = config.answerWindow === "screen" ? boxed(height, false) : undefined;
+	const asked =
+		config.answerWindow === "screen" && config.questionLines !== "full" ? boxed(askedHeight, true) : undefined;
+	const mirror = newestFirst ? new Reversed(document, true, divider, window, asked) : undefined;
 	const transcript = new ScrollView(mirror ?? document, {
 		follow: newestFirst && config.dock === "top" ? "none" : "end",
 		primary: true,
