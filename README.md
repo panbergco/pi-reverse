@@ -88,6 +88,18 @@ warning instead of half-applying.
 | `alt+e` / `/reverse expand` | show that answer at full height, or re-window it |
 | `alt+w` / `/reverse window` | turn answer windows on or off |
 
+## The seam between pairs carries a time
+
+```text
+─── 04:19 AM · 1h ago ─────────────────────────────────────
+```
+
+The rule between two turns is labelled with when the question below it was asked. A border inside an
+answer never carries a time, so the seam can no longer be confused with one — and when a turn follows
+a long pause the label says so instead (`4h later · 08:14`), which is how you find where you picked
+the session back up. A turn whose time cannot be established reads `time unknown` rather than
+guessing.
+
 ## Long answers get one screenful
 
 **Every answer gets 70% of the pane**, so each pair is one readable block and the next one stays in
@@ -151,6 +163,7 @@ agent directory.
 | `wheel-chain` | `on` `off` | `off` | pass the wheel to the transcript at an answer's end |
 | `sticky-question` | `on` `off` | `on` | keep the question on screen once it scrolls away |
 | `turn-divider` | `on` `off` | `on` | rule between Q&A pairs |
+| `divider-time` | `on` `off` | `on` | stamp that rule with when the question was asked |
 | `follow-tail` | `on` `off` | `on` | chase a streaming answer instead of letting it grow past the fold |
 | `tail-margin` | `0..5` | `1` | lines kept below the streaming line |
 | `pad-outer` | `0..5` | `1` | blank lines at the screen edge |

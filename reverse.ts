@@ -20,6 +20,7 @@ import {
 	VStack,
 } from "@earendil-works/pi-tui";
 import { configFile, DEFAULTS, dockOrder, type ReverseConfig, readConfig, sanitize } from "./config.ts";
+import { dividerLabel } from "./reverse-label.ts";
 import { groupTurns, isQuestion, nextTurnOffset, reverseTurns } from "./turns.ts";
 
 /** pi mounts exactly these regions, in this order (interactive-mode init). */
@@ -37,8 +38,8 @@ class Reversed extends Container {
 		private readonly source: Container,
 		/** Also reverse the last source child (the chat log inside the document). */
 		private readonly deep: boolean,
-		/** Optional rule drawn between turns. */
-		private readonly divider?: () => Component,
+		/** Optional rule drawn between turns; receives the chronological index of the turn below it. */
+		private readonly divider?: (turnIndex: number) => Component,
 		/** Optional window around each answer; newest and older turns can differ. */
 		private readonly window?: (answer: Component, newest: boolean) => Component,
 	) {
@@ -93,8 +94,9 @@ class Reversed extends Container {
 		const stacked = (groupTurns(body) as Component[][]).reverse();
 		const children: Component[] = [];
 		const starts: number[] = [];
-		for (const turn of stacked) {
-			if (children.length > 0 && this.divider) children.push(this.divider());
+		for (const [display, turn] of stacked.entries()) {
+			// Display order is newest first, so the seam above a turn labels that turn's own question.
+			if (children.length > 0 && this.divider) children.push(this.divider(stacked.length - 1 - display));
 			starts.push(children.length);
 			const parts = this.windowed(turn, starts.length === 1);
 			// Count after windowing: a windowed answer is one child, however many components it holds.
@@ -372,12 +374,25 @@ class Windowed implements Component {
 	}
 }
 
-/** A one-line rule between turns, so stacked pairs are easy to tell apart. */
+/**
+ * The rule between turns, labelled with when the question below it was asked. A seam that carries a
+ * time cannot be mistaken for a border inside an answer, which is the whole point of labelling it.
+ */
 class Divider implements Component {
-	constructor(private readonly style: (text: string) => string) {}
+	constructor(
+		private readonly style: (text: string) => string,
+		private readonly label: string,
+	) {}
+
 	render(width: number): string[] {
-		return ["", this.style("─".repeat(Math.max(1, width)))];
+		const w = Math.max(1, width);
+		const text = ` ${this.label} `;
+		if (text.length + 8 > w) return ["", this.style("─".repeat(w))];
+		const left = 3;
+		const right = Math.max(1, w - left - text.length);
+		return ["", this.style(`${"─".repeat(left)}${text}${"─".repeat(right)}`)];
 	}
+
 	invalidate(): void {}
 }
 
@@ -465,6 +480,7 @@ function applyLayout(
 	config: ReverseConfig,
 	dim: (text: string) => string,
 	sticky: StickyQuestion,
+	askedAt: () => number[],
 ): string | undefined {
 	if (tui.mode !== "fullscreen") return "pi-reverse needs fullscreen mode — set tuiMode: fullscreen";
 	if (!isViewportTUI(tui)) return "pi-reverse: this pi build has no layout root";
@@ -479,7 +495,13 @@ function applyLayout(
 	if (!(document instanceof Container)) return "pi-reverse: transcript container not found";
 
 	const newestFirst = config.order === "newest-first";
-	const divider = config.turnDivider === "on" ? () => new Divider(dim) : undefined;
+	const divider =
+		config.turnDivider === "on"
+			? (turnIndex: number) => {
+					const stamps = config.dividerTime === "on" ? askedAt() : [];
+					return new Divider(dim, dividerLabel(stamps[turnIndex], stamps[turnIndex - 1], Date.now()));
+				}
+			: undefined;
 	// Measured live from the terminal, not the scroll view: a split pane resizes without the scroll
 	// view being laid out again, and a stale viewport would freeze every answer window at the old size.
 	let view: ScrollView | undefined;
@@ -563,6 +585,7 @@ const USAGE = [
 	"/reverse spinner below-prompt|above-prompt",
 	"/reverse sticky-question on|off  keep the question on screen while its answer scrolls",
 	"/reverse turn-divider on|off     rule between Q&A pairs",
+	"/reverse divider-time on|off     stamp that rule with when the question was asked",
 	"/reverse window                  toggle one-screen answer windows            (alt+w)",
 	"/reverse expand                  expand / collapse the newest answer         (alt+e)",
 	"                                 alt+, / alt+. scroll inside the answer",
@@ -586,6 +609,7 @@ const KEYS: Record<string, keyof ReverseConfig> = {
 	spinner: "spinner",
 	"sticky-question": "stickyQuestion",
 	"turn-divider": "turnDivider",
+	"divider-time": "dividerTime",
 	"answer-window": "answerWindow",
 	"answer-lines": "answerLines",
 	"older-lines": "olderLines",
@@ -611,6 +635,24 @@ export default function (pi: ExtensionAPI) {
 	let live: TUI | undefined;
 	let applyPending = true;
 	let dim: (text: string) => string = (text) => text;
+	// When each question was asked, oldest first — read from the session so a resumed transcript is
+	// labelled too. A turn we cannot place stays unlabelled rather than guessing.
+	let times: number[] = [];
+	const questionTimes = () => times;
+	const readTimes = (ctx: { sessionManager?: { getBranch?: () => unknown[] } }): void => {
+		try {
+			const branch = ctx.sessionManager?.getBranch?.() ?? [];
+			times = branch
+				.filter((entry) => {
+					const e = entry as { type?: string; message?: { role?: string } };
+					return e.type === "message" && e.message?.role === "user";
+				})
+				.map((entry) => Date.parse((entry as { timestamp?: string }).timestamp ?? ""))
+				.filter((value) => Number.isFinite(value));
+		} catch {
+			times = [];
+		}
+	};
 	const sticky = new StickyQuestion((text) => dim(text));
 
 
@@ -623,7 +665,7 @@ export default function (pi: ExtensionAPI) {
 				applyPending = false;
 				// Defer: we are inside a render pass.
 				setTimeout(() => {
-					const problem = applyLayout(tui, config, dim, sticky);
+					const problem = applyLayout(tui, config, dim, sticky, questionTimes);
 					if (problem) ctx.ui.notify(problem, "warning");
 				}, 0);
 			}
@@ -632,8 +674,10 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	pi.on("session_start", async (_event, ctx) => {
+		readTimes(ctx as never);
 		if (ctx.mode === "tui") register(ctx as never);
 	});
+	pi.on("turn_end", async (_event, ctx) => readTimes(ctx as never));
 
 	pi.on("input", async (event) => {
 		sticky.text = String((event as { text?: string }).text ?? "");
@@ -684,7 +728,7 @@ export default function (pi: ExtensionAPI) {
 		config = { ...config, answerWindow: config.answerWindow === "screen" ? "off" : "screen" };
 		save(ctx);
 		if (live) {
-			const problem = applyLayout(live, config, dim, sticky);
+			const problem = applyLayout(live, config, dim, sticky, questionTimes);
 			ctx.ui.notify(problem ?? `pi-reverse: answer window ${config.answerWindow}`, problem ? "warning" : "info");
 		}
 	};
@@ -702,7 +746,7 @@ export default function (pi: ExtensionAPI) {
 		handler: async (args, ctx) => {
 			const [rawKey, rawValue] = String(args ?? "").trim().split(/\s+/);
 			const describe = () =>
-				`pi-reverse: dock ${config.dock} · order ${config.order} · status-bar ${config.statusBar} · spinner ${config.spinner} · sticky-question ${config.stickyQuestion} · turn-divider ${config.turnDivider} · follow-tail ${config.followTail} · tail-margin ${config.tailMargin} · pad-outer ${config.padOuter} · pad-transient ${config.padTransient} · answer-window ${config.answerWindow} · answer-lines ${config.answerLines} · older-lines ${config.olderLines} · wheel-zone ${config.wheelZone} · wheel-chain ${config.wheelChain}`;
+				`pi-reverse: dock ${config.dock} · order ${config.order} · status-bar ${config.statusBar} · spinner ${config.spinner} · sticky-question ${config.stickyQuestion} · turn-divider ${config.turnDivider} · divider-time ${config.dividerTime} · follow-tail ${config.followTail} · tail-margin ${config.tailMargin} · pad-outer ${config.padOuter} · pad-transient ${config.padTransient} · answer-window ${config.answerWindow} · answer-lines ${config.answerLines} · older-lines ${config.olderLines} · wheel-zone ${config.wheelZone} · wheel-chain ${config.wheelChain}`;
 
 			if (!rawKey) {
 				ctx.ui.notify(`${describe()}\n\n${USAGE}`, "info");
@@ -752,7 +796,7 @@ export default function (pi: ExtensionAPI) {
 				register(ctx as never);
 				return;
 			}
-			const problem = applyLayout(live, config, dim, sticky);
+			const problem = applyLayout(live, config, dim, sticky, questionTimes);
 			ctx.ui.notify(problem ?? describe(), problem ? "warning" : "info");
 		},
 	});

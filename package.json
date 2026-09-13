@@ -1,6 +1,6 @@
 {
 	"name": "pi-reverse",
-	"version": "0.9.0",
+	"version": "0.10.0",
 	"description": "Reverse mode for pi: prompt pinned to the top, Q&A pairs stacked newest first, jump between pairs.",
 	"type": "module",
 	"keywords": [

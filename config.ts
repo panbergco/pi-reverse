@@ -23,6 +23,8 @@ export interface ReverseConfig {
 	stickyQuestion: "on" | "off";
 	/** Draw a rule between turns so stacked pairs are easy to separate. */
 	turnDivider: "on" | "off";
+	/** Label that rule with when the question below it was asked. */
+	dividerTime: "on" | "off";
 	/** Where the working spinner and queued messages sit relative to the prompt. */
 	spinner: "below-prompt" | "above-prompt";
 	/** Cap each answer at one screenful, anchored at its end, instead of letting it run on. */
@@ -47,6 +49,7 @@ export const DEFAULTS: ReverseConfig = {
 	tailMargin: 1,
 	stickyQuestion: "on",
 	turnDivider: "on",
+	dividerTime: "on",
 	spinner: "below-prompt",
 	answerWindow: "screen",
 	answerLines: "70%",
@@ -122,6 +125,7 @@ export function sanitize(raw: unknown): ReverseConfig {
 		tailMargin: count("tailMargin"),
 		stickyQuestion: pick("stickyQuestion", ["on", "off"]),
 		turnDivider: pick("turnDivider", ["on", "off"]),
+		dividerTime: pick("dividerTime", ["on", "off"]),
 		spinner: pick("spinner", ["below-prompt", "above-prompt"]),
 		answerWindow: pick("answerWindow", ["screen", "off"]),
 		answerLines: lines("answerLines", "screen"),
