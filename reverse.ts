@@ -51,13 +51,21 @@ class Reversed extends Container {
 	newestWindow: Windowed | undefined;
 	/** Line offset of that window inside the transcript content. */
 	newestWindowTop = 0;
+	/** Rows on screen, so off-screen turns can be reused instead of re-rendered every frame. */
+	visible: (() => { top: number; height: number }) | undefined;
+	/** Called when the nested chat mirror is created, so it inherits the viewport range. */
+	onInner: ((inner: Reversed) => void) | undefined;
+	private readonly cache = new WeakMap<Component, string[]>();
+	private cacheWidth = -1;
+	private heights: number[] = [];
+	private lastChildren: Component[] | undefined;
 
 	/** Rendered height of the newest turn — what "follow the tail" needs to scroll by. */
 	newestTurnHeight = 0;
 	/** Line offset of the top of every turn, newest first — what turn-to-turn jumping needs. */
 	turnOffsets: number[] = [];
 	private newestTurnCount = 0;
-	private turnStarts: number[] = [];
+	private turnStarts = new Set<number>();
 
 	private sync(): void {
 		const src = this.source.children;
@@ -71,6 +79,7 @@ class Reversed extends Container {
 				this.mirrors.set(child, mirror);
 			}
 			this.inner = mirror;
+			this.onInner?.(mirror);
 			return mirror as Component;
 		});
 		// The document's own regions have no turns in them, so they simply reverse.
@@ -93,7 +102,7 @@ class Reversed extends Container {
 			}
 			for (const child of parts) children.push(child);
 		}
-		this.turnStarts = starts;
+		this.turnStarts = new Set(starts);
 		this.children = [...children, ...src.slice(0, this.pivot)];
 	}
 
@@ -117,12 +126,22 @@ class Reversed extends Container {
 
 	override render(width: number): string[] {
 		this.sync();
+		if (width !== this.cacheWidth) {
+			this.cacheWidth = width;
+			this.dropCache();
+		}
+		// A long transcript is thousands of lines; rendering all of it per frame is what made
+		// scrolling crawl. Anything comfortably off screen keeps the lines it produced last time,
+		// and is rendered again the moment it comes near the viewport, so nothing stale is shown.
+		const view = this.visible?.();
+		const margin = view ? view.height : 0;
 		const lines: string[] = [];
 		const offsets: number[] = [];
+		const heights: number[] = [];
 		let newest = 0;
 		let turnTop = 0;
 		for (let i = 0; i < this.children.length; i++) {
-			if (this.turnStarts.includes(i)) {
+			if (this.turnStarts.has(i)) {
 				offsets.push(lines.length);
 				turnTop = lines.length;
 			}
@@ -132,22 +151,49 @@ class Reversed extends Container {
 				child.setReserve(lines.length - turnTop + 2);
 				if (child === this.newestWindow) this.newestWindowTop = lines.length;
 			}
-			const childLines = child.render(width);
+			// A nested mirror and a window that has just moved must always render themselves.
+			const live = child instanceof Reversed || (child instanceof Windowed && child.dirty);
+			const cached = live ? undefined : this.cache.get(child);
+			const offScreen =
+				view !== undefined &&
+				cached !== undefined &&
+				i >= this.newestTurnCount &&
+				(lines.length + cached.length < view.top - margin || lines.length > view.top + view.height + margin);
+			const childLines = offScreen ? (cached as string[]) : child.render(width);
+			if (!offScreen) this.cache.set(child, childLines);
 			if (i < this.newestTurnCount) newest += childLines.length;
+			heights.push(childLines.length);
 			for (const line of childLines) lines.push(line);
 		}
 		this.newestTurnHeight = newest;
 		this.turnOffsets = offsets;
+		this.heights = heights;
+		this.lastChildren = this.children;
 		return lines;
 	}
 
 	override handleMouse(event: TuiMouseEvent) {
-		this.sync();
-		return super.handleMouse(event);
+		// Container.handleMouse re-renders every child to find the target; use the layout from the
+		// last render instead, which is the difference between a smooth wheel and a stuttering one.
+		if (this.heights.length !== this.children.length) return super.handleMouse(event);
+		let top = 0;
+		for (let i = 0; i < this.children.length; i++) {
+			const height = this.heights[i];
+			if (event.y >= top && event.y < top + height) {
+				return this.children[i].handleMouse?.({ ...event, y: event.y - top, height });
+			}
+			top += height;
+		}
+		return undefined;
+	}
+
+	private dropCache(): void {
+		for (const child of this.children) this.cache.delete(child);
 	}
 
 	override invalidate(): void {
 		this.sync();
+		this.dropCache();
 		super.invalidate();
 	}
 }
@@ -162,6 +208,7 @@ class Padded implements Component {
 	) {}
 
 	render(width: number): string[] {
+		this.dirty = false;
 		const lines = this.inner.render(width);
 		let start = 0;
 		let end = lines.length;
@@ -217,13 +264,19 @@ class Windowed implements Component {
 
 	/** The mirror measures what sits above this window in the same turn, so the end stays on screen. */
 	setReserve(lines: number): void {
-		this.reserve = Math.max(2, lines);
+		const next = Math.max(2, lines);
+		if (next !== this.reserve) this.dirty = true;
+		this.reserve = next;
 	}
 
 	/** Keep the same window (and its scroll position) as the turn grows. */
 	setAnswer(children: Component[]): void {
+		if (children.length !== this.inner.children.length) this.dirty = true;
 		this.inner.children = children;
 	}
+
+	/** Set while this window's own state changed, so the mirror re-renders it even if off screen. */
+	dirty = true;
 
 	/** Move the window by whole lines; returns false at either end so the transcript can take over. */
 	scrollByLines(delta: number): boolean {
@@ -232,6 +285,7 @@ class Windowed implements Component {
 		const next = Math.min(this.maxStart, Math.max(0, current + delta));
 		if (next === current) return false;
 		this.anchor = next >= this.maxStart ? undefined : next;
+		this.dirty = true;
 		return true;
 	}
 
@@ -262,12 +316,14 @@ class Windowed implements Component {
 	/** Show the answer at full height, or put the one-screen window back. */
 	toggleExpanded(): boolean {
 		this.expanded = !this.expanded;
+		this.dirty = true;
 		return this.expanded;
 	}
 
 	private expanded = false;
 
 	render(width: number): string[] {
+		this.dirty = false;
 		const lines = this.inner.render(width);
 		const max = Math.max(5, this.maxLines(this.reserve));
 		// Images are drawn with escape sequences spanning rows; slicing them corrupts the screen.
@@ -304,10 +360,10 @@ class Windowed implements Component {
 		// Wheel up (negative delta) walks back into the hidden part; wheel down returns to the end.
 		// The wheel belongs to this window in its half of the pane. Reaching the end stops there:
 		// the transcript does not take over mid-gesture unless chaining is switched on.
-		if (event.type === "wheel" && event.wheelDelta && this.ownsWheel(event.x, event.width)) {
+		if (event.type === "wheel") {
+			if (!event.wheelDelta || !this.ownsWheel(event.x, event.width)) return undefined;
 			const moved = this.scrollByLines(event.wheelDelta);
-			if (moved || (this.clipped && !this.chain())) return { handled: true };
-			return undefined;
+			return moved || (this.clipped && !this.chain()) ? { handled: true } : undefined;
 		}
 		return this.inner.handleMouse?.({ ...event, y: event.y - this.lead + this.start });
 	}
@@ -453,6 +509,13 @@ function applyLayout(
 		overscroll: "chain",
 	});
 	view = transcript;
+	if (mirror) {
+		const range = () => ({ top: transcript.scrollTop, height: transcript.viewportHeight });
+		mirror.visible = range;
+		mirror.onInner = (inner) => {
+			inner.visible = range;
+		};
+	}
 	// Only the top-docked, newest-first layout needs it: otherwise the scroll view follows the end itself.
 	sticky.visible = false;
 	tail = mirror
@@ -546,6 +609,7 @@ export default function (pi: ExtensionAPI) {
 	let dim: (text: string) => string = (text) => text;
 	const sticky = new StickyQuestion((text) => dim(text));
 
+
 	const register = (ctx: { ui: { setWidget: Function; notify: Function } }): void => {
 		// A widget factory is the only place an extension is handed the live TUI (and the theme).
 		ctx.ui.setWidget("pi-reverse", (tui: TUI, theme: { fg(color: string, text: string): string }) => {
@@ -583,14 +647,14 @@ export default function (pi: ExtensionAPI) {
 	pi.on("tool_execution_end", async () => chase());
 
 	const move = (where: "tail" | "question" | "next" | "prev"): void => {
-		if (jump(where)) live?.requestRender(true);
+		if (jump(where)) live?.requestRender();
 	};
 	pi.registerShortcut("alt+j", { description: "pi-reverse: next Q&A pair", handler: () => move("next") });
 	pi.registerShortcut("alt+k", { description: "pi-reverse: previous Q&A pair", handler: () => move("prev") });
 	pi.registerShortcut("alt+l", { description: "pi-reverse: end of the current answer", handler: () => move("tail") });
 	const scrollAnswer = (lines: number): void => {
 		const box = tail?.mirror.inner?.newestWindow;
-		if (box?.scrollByLines(lines)) live?.requestRender(true);
+		if (box?.scrollByLines(lines)) live?.requestRender();
 	};
 	pi.registerShortcut("alt+,", { description: "pi-reverse: scroll up inside the answer", handler: () => scrollAnswer(-5) });
 	pi.registerShortcut("alt+.", {
@@ -603,7 +667,7 @@ export default function (pi: ExtensionAPI) {
 			const box = tail?.mirror.inner?.newestWindow;
 			if (!box) return;
 			box.toggleExpanded();
-			live?.requestRender(true);
+			live?.requestRender();
 		},
 	});
 	pi.registerShortcut("alt+w", {
@@ -643,7 +707,7 @@ export default function (pi: ExtensionAPI) {
 			const where = JUMPS[rawKey.toLowerCase()];
 			if (where) {
 				if (!jump(where)) ctx.ui.notify("pi-reverse: nothing to jump to", "warning");
-				else live?.requestRender(true);
+				else live?.requestRender();
 				return;
 			}
 			if (rawKey === "expand") {
@@ -651,7 +715,7 @@ export default function (pi: ExtensionAPI) {
 				if (!box) ctx.ui.notify("pi-reverse: nothing to expand", "warning");
 				else {
 					box.toggleExpanded();
-					live?.requestRender(true);
+					live?.requestRender();
 				}
 				return;
 			}
