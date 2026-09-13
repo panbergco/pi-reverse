@@ -1,5 +1,6 @@
 // Smallest check that fails if the layout logic breaks: node test.mjs
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { DEFAULTS, dockOrder, sanitize } from "./config.ts";
 import { reverseTurns } from "./turns.ts";
 
@@ -118,3 +119,13 @@ assert.match(dividerLabel(T, T - 4 * 3_600_000, T + 60_000), /4h later/);
 assert.equal(dividerLabel(undefined, undefined, T), "time unknown");
 
 console.log("pi-reverse: divider label checks passed");
+
+// --- regression: invalidating a long transcript must not throw away every off-screen row ---
+// That made the working indicator wait 4.9s on a 1,000-message session. Width changes still clear
+// the cache; ordinary transcript invalidation does not, because rows refresh before entering view.
+const source = readFileSync(new URL("./reverse.ts", import.meta.url), "utf8");
+const invalidate = source.match(/override invalidate\(\): void \{([\s\S]*?)\n\t\}/)?.[1] ?? "";
+assert.ok(invalidate, "Reversed.invalidate exists");
+assert.doesNotMatch(invalidate, /dropCache\(/);
+
+console.log("pi-reverse: invalidation cache regression check passed");
