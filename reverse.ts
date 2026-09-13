@@ -20,7 +20,7 @@ import {
 	VStack,
 } from "@earendil-works/pi-tui";
 import { configFile, DEFAULTS, dockOrder, type ReverseConfig, readConfig, sanitize } from "./config.ts";
-import { dividerLabel, windowEdgeLabels } from "./reverse-label.ts";
+import { dividerLabel, ruleTo, windowEdgeLabels } from "./reverse-label.ts";
 import { messageText, type QuestionRecord, QuestionTimes } from "./turn-time.ts";
 import { groupTurns, isQuestion, nextTurnOffset, reverseTurns } from "./turns.ts";
 
@@ -359,13 +359,22 @@ class Windowed implements Component {
 		this.dirty = false;
 		const lines = this.inner.render(width);
 		const max = Math.max(5, this.maxLines(this.reserve));
+		// Hiding one or two lines costs a marker row to say so, which is the whole saving. Leave a
+		// question that barely overruns alone rather than clipping it to no purpose.
+		const slack = this.fromTop ? 2 : 0;
 		// Images are drawn with escape sequences spanning rows; slicing them corrupts the screen.
-		if (this.expanded || lines.length <= max || lines.some((line) => IMAGE_PREFIXES.some((p) => line.includes(p)))) {
+		if (
+			this.expanded ||
+			lines.length <= max + slack ||
+			lines.some((line) => IMAGE_PREFIXES.some((p) => line.includes(p)))
+		) {
 			this.start = 0;
 			this.lead = 0;
 			this.clipped = false;
-			this.height = lines.length;
-			return lines;
+			// The boundary is drawn whether or not anything is folded: it is what divides the pair.
+			const out = this.fromTop ? [...lines, this.style(ruleTo("RULE", width))] : lines;
+			this.height = out.length;
+			return out;
 		}
 		this.clipped = true;
 		const maxStart = lines.length - max;
@@ -376,7 +385,8 @@ class Windowed implements Component {
 			this.anchor === undefined ? (this.fromTop ? 0 : maxStart) : Math.min(this.anchor, maxStart);
 		this.start = start;
 		const hiddenBelow = lines.length - start - max;
-		const [above, below] = windowEdgeLabels(start, hiddenBelow, this.wheelHint(), this.fromTop);
+		const [above, belowLabel] = windowEdgeLabels(start, hiddenBelow, this.wheelHint(), this.fromTop);
+		const below = this.fromTop ? ruleTo(belowLabel, width) : belowLabel;
 		// Both rows stay present at every inner-scroll position. Before this, entering the middle added
 		// a second marker row and pushed the next Q&A pair down one line; reaching an edge removed it.
 		const head = above ? this.style(above) : "";
