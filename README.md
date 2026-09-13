@@ -126,3 +126,7 @@ pi-reverse, **45-73 ms** for stock pi on the same transcript.
 ```bash
 node test.mjs      # layout order, turn grouping, jump targets, config validation
 ```
+
+## Future ideas
+
+Parked work, the research behind it, and who else has asked for this: [IDEAS.md](IDEAS.md).
