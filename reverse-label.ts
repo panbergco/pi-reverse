@@ -1,9 +1,26 @@
 /** Divider label — no TUI imports, so `node test.mjs` can exercise it directly. */
 
-/** A clipped answer always reserves both marker rows, so the pair below it never jumps by a line. */
-export function windowEdgeLabels(start: number, hiddenBelow: number, wheelHint: string): [string, string] {
-	const above =
-		start > 0 ? `  ⋯ ${start} line${start === 1 ? "" : "s"} above · ${wheelHint} · alt+e expands` : "";
+/**
+ * A clipped window always reserves both marker rows, so the pair below it never jumps by a line.
+ *
+ * An answer rests at its end, so its hint rides the marker ABOVE. A question rests at its first
+ * line, so the unread part is below it and the hint rides that marker instead — and "follow again"
+ * would be nonsense on a question, which is not streaming anywhere.
+ */
+export function windowEdgeLabels(
+	start: number,
+	hiddenBelow: number,
+	wheelHint: string,
+	fromTop = false,
+): [string, string] {
+	const plural = (n: number) => (n === 1 ? "" : "s");
+	if (fromTop) {
+		return [
+			start > 0 ? `  ⋯ ${start} line${plural(start)} above` : "",
+			hiddenBelow > 0 ? `  ⋯ ${hiddenBelow} more line${plural(hiddenBelow)} · ${wheelHint} · alt+e expands` : "",
+		];
+	}
+	const above = start > 0 ? `  ⋯ ${start} line${plural(start)} above · ${wheelHint} · alt+e expands` : "";
 	const below = hiddenBelow > 0 ? `  ⋯ ${hiddenBelow} below · wheel down to follow again` : "";
 	return [above, below];
 }
