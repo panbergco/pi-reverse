@@ -27,6 +27,10 @@ export interface ReverseConfig {
 	spinner: "below-prompt" | "above-prompt";
 	/** Cap each answer at one screenful, anchored at its end, instead of letting it run on. */
 	answerWindow: "screen" | "off";
+	/** Height of the newest answer: a screenful, or a fixed number of lines. */
+	answerLines: "screen" | number;
+	/** Height of answers in older pairs, so the stack stays scannable. */
+	olderLines: "same" | number;
 }
 
 export const DEFAULTS: ReverseConfig = {
@@ -41,6 +45,8 @@ export const DEFAULTS: ReverseConfig = {
 	turnDivider: "on",
 	spinner: "below-prompt",
 	answerWindow: "screen",
+	answerLines: "screen",
+	olderLines: 6,
 };
 
 /** pi mounts exactly these regions, in this order (interactive-mode init). */
@@ -88,6 +94,13 @@ export function sanitize(raw: unknown): ReverseConfig {
 		const value = Number(input[key]);
 		return Number.isInteger(value) && value >= 0 && value <= 5 ? value : DEFAULTS[key];
 	};
+	// "screen"/"same" or a line count; anything else falls back to the default.
+	const lines = <K extends "answerLines" | "olderLines">(key: K, keyword: string): ReverseConfig[K] => {
+		const value = input[key];
+		if (value === keyword) return value as ReverseConfig[K];
+		const count = Number(value);
+		return (Number.isInteger(count) && count >= 3 && count <= 200 ? count : DEFAULTS[key]) as ReverseConfig[K];
+	};
 	return {
 		dock: pick("dock", ["top", "bottom"]),
 		order: pick("order", ["newest-first", "oldest-first"]),
@@ -100,5 +113,7 @@ export function sanitize(raw: unknown): ReverseConfig {
 		turnDivider: pick("turnDivider", ["on", "off"]),
 		spinner: pick("spinner", ["below-prompt", "above-prompt"]),
 		answerWindow: pick("answerWindow", ["screen", "off"]),
+		answerLines: lines("answerLines", "screen"),
+		olderLines: lines("olderLines", "same"),
 	};
 }

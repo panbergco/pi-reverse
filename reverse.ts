@@ -39,8 +39,8 @@ class Reversed extends Container {
 		private readonly deep: boolean,
 		/** Optional rule drawn between turns. */
 		private readonly divider?: () => Component,
-		/** Optional one-screen window around each answer. */
-		private readonly window?: (answer: Component) => Component,
+		/** Optional window around each answer; newest and older turns can differ. */
+		private readonly window?: (answer: Component, newest: boolean) => Component,
 	) {
 		super();
 	}
@@ -84,7 +84,7 @@ class Reversed extends Container {
 		for (const turn of stacked) {
 			if (children.length > 0 && this.divider) children.push(this.divider());
 			starts.push(children.length);
-			const parts = this.windowed(turn);
+			const parts = this.windowed(turn, starts.length === 1);
 			// Count after windowing: a windowed answer is one child, however many components it holds.
 			if (starts.length === 1) {
 				this.newestTurnCount = parts.length;
@@ -98,7 +98,7 @@ class Reversed extends Container {
 	}
 
 	/** Question stays as it is; everything after it in the turn shares one window. */
-	private windowed(turn: Component[]): Component[] {
+	private windowed(turn: Component[], newest: boolean): Component[] {
 		if (!this.window) return turn;
 		const split = turn.findIndex((child) => isQuestion(child)) + 1;
 		if (split <= 0 || split >= turn.length) return turn;
@@ -107,7 +107,7 @@ class Reversed extends Container {
 		if (!box) {
 			const answer = new Container();
 			answer.children = turn.slice(split);
-			box = this.window(answer);
+			box = this.window(answer, newest);
 			this.windows.set(key, box);
 		} else if (box instanceof Windowed) {
 			box.setAnswer(turn.slice(split));
@@ -206,7 +206,8 @@ class Windowed implements Component {
 
 	constructor(
 		private readonly inner: Container,
-		private readonly viewport: () => number,
+		/** Final window height; receives what this turn already spends above the window. */
+		private readonly maxLines: (reserve: number) => number,
 		private readonly style: (text: string) => string,
 	) {}
 
@@ -249,8 +250,7 @@ class Windowed implements Component {
 
 	render(width: number): string[] {
 		const lines = this.inner.render(width);
-		// Room left on screen once the question and markers have had their share.
-		const max = Math.max(5, this.viewport() - this.reserve);
+		const max = Math.max(3, this.maxLines(this.reserve));
 		// Images are drawn with escape sequences spanning rows; slicing them corrupts the screen.
 		if (this.expanded || lines.length <= max || lines.some((line) => IMAGE_PREFIXES.some((p) => line.includes(p)))) {
 			this.start = 0;
@@ -400,10 +400,17 @@ function applyLayout(
 	const divider = config.turnDivider === "on" ? () => new Divider(dim) : undefined;
 	// One screenful, measured live: resizing the terminal resizes every answer window with it.
 	let view: ScrollView | undefined;
-	const screenful = () => (view?.viewportHeight ?? 24);
+	const screenful = () => view?.viewportHeight ?? 24;
+	// The newest pair gets room to be read; older pairs shrink to a preview so one pair is easy to
+	// focus on and the rest stay scannable.
+	const height = (newest: boolean): ((reserve: number) => number) => {
+		if (!newest && config.olderLines !== "same") return () => config.olderLines as number;
+		if (config.answerLines !== "screen") return () => config.answerLines as number;
+		return (reserve) => screenful() - reserve;
+	};
 	const window =
 		config.answerWindow === "screen"
-			? (answer: Component) => new Windowed(answer as Container, screenful, dim)
+			? (answer: Component, newest: boolean) => new Windowed(answer as Container, height(newest), dim)
 			: undefined;
 	const mirror = newestFirst ? new Reversed(document, true, divider, window) : undefined;
 	const transcript = new ScrollView(mirror ?? document, {
@@ -459,6 +466,8 @@ const USAGE = [
 	"/reverse expand                  expand / collapse the newest answer         (alt+e)",
 	"                                 alt+, / alt+. scroll inside the answer",
 	"/reverse answer-window screen|off",
+	"/reverse answer-lines screen|3..200   height of the newest answer",
+	"/reverse older-lines same|3..200      height of answers in older pairs",
 	"/reverse follow-tail on|off      keep a streaming answer's last line in view",
 	"/reverse tail-margin 0..5        slack kept below that line",
 	"/reverse pad-outer 0..5          blank lines at the screen edge",
@@ -475,6 +484,8 @@ const KEYS: Record<string, keyof ReverseConfig> = {
 	"sticky-question": "stickyQuestion",
 	"turn-divider": "turnDivider",
 	"answer-window": "answerWindow",
+	"answer-lines": "answerLines",
+	"older-lines": "olderLines",
 	"pad-outer": "padOuter",
 	"pad-transient": "padTransient",
 	"follow-tail": "followTail",
@@ -585,7 +596,7 @@ export default function (pi: ExtensionAPI) {
 		handler: async (args, ctx) => {
 			const [rawKey, rawValue] = String(args ?? "").trim().split(/\s+/);
 			const describe = () =>
-				`pi-reverse: dock ${config.dock} · order ${config.order} · status-bar ${config.statusBar} · spinner ${config.spinner} · sticky-question ${config.stickyQuestion} · turn-divider ${config.turnDivider} · follow-tail ${config.followTail} · tail-margin ${config.tailMargin} · pad-outer ${config.padOuter} · pad-transient ${config.padTransient} · answer-window ${config.answerWindow}`;
+				`pi-reverse: dock ${config.dock} · order ${config.order} · status-bar ${config.statusBar} · spinner ${config.spinner} · sticky-question ${config.stickyQuestion} · turn-divider ${config.turnDivider} · follow-tail ${config.followTail} · tail-margin ${config.tailMargin} · pad-outer ${config.padOuter} · pad-transient ${config.padTransient} · answer-window ${config.answerWindow} · answer-lines ${config.answerLines} · older-lines ${config.olderLines}`;
 
 			if (!rawKey) {
 				ctx.ui.notify(`${describe()}\n\n${USAGE}`, "info");
@@ -619,7 +630,8 @@ export default function (pi: ExtensionAPI) {
 					return;
 				}
 				const numeric = key === "padOuter" || key === "padTransient" || key === "tailMargin";
-				const value = numeric ? Number(rawValue) : rawValue;
+				const counted = (key === "answerLines" || key === "olderLines") && /^\d+$/.test(rawValue ?? "");
+				const value = numeric || counted ? Number(rawValue) : rawValue;
 				const next = sanitize({ ...config, [key]: value });
 				if (next[key] !== value) {
 					ctx.ui.notify(`pi-reverse: invalid value "${rawValue}" for ${rawKey}\n\n${USAGE}`, "warning");

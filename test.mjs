@@ -78,3 +78,13 @@ assert.equal(nextTurnOffset(offs, 0, -1), undefined);
 assert.equal(nextTurnOffset([], 0, 1), undefined);
 
 console.log("pi-reverse: jump checks passed");
+
+// --- answer height: a screenful for the newest pair, a preview for older ones ---
+assert.equal(sanitize({}).answerLines, "screen");
+assert.equal(sanitize({}).olderLines, 6);
+assert.equal(sanitize({ answerLines: 12 }).answerLines, 12);
+assert.equal(sanitize({ answerLines: 1 }).answerLines, "screen");    // below the floor
+assert.equal(sanitize({ olderLines: "same" }).olderLines, "same");
+assert.equal(sanitize({ olderLines: 999 }).olderLines, 6);
+
+console.log("pi-reverse: answer height checks passed");

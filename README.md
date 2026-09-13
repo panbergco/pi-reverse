@@ -47,7 +47,11 @@ warning instead of half-applying.
 
 ## Long answers get one screenful
 
-An answer longer than the viewport renders as a window anchored at its **end**, so the conclusion
+The newest answer gets a screenful; **older pairs shrink to a 6-line preview**, so several
+question/answer pairs fit on one screen and it stays easy to focus on one of them. Both heights are
+settings (`answer-lines`, `older-lines`).
+
+An answer longer than its height renders as a window anchored at its **end**, so the conclusion
 sits next to the question instead of a screen-and-a-half below it. A dim marker says how much is
 hidden. The window follows the text while it streams, and stops following the moment you scroll
 inside it — scroll back to the bottom and it follows again.
@@ -68,6 +72,8 @@ transcript; the keyboard controls above work everywhere.
 | `order` | `newest-first` `oldest-first` | `newest-first` | transcript direction |
 | `status-bar` | `above-prompt` `below-prompt` | `above-prompt` | status bar side |
 | `spinner` | `below-prompt` `above-prompt` | `below-prompt` | where the working spinner and queued messages go |
+| `answer-lines` | `screen` or `3..200` | `screen` | height of the newest answer |
+| `older-lines` | `same` or `3..200` | `6` | height of answers in older pairs |
 | `sticky-question` | `on` `off` | `on` | keep the question on screen once it scrolls away |
 | `turn-divider` | `on` `off` | `on` | rule between Q&A pairs |
 | `follow-tail` | `on` `off` | `on` | chase a streaming answer instead of letting it grow past the fold |
