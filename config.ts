@@ -25,6 +25,8 @@ export interface ReverseConfig {
 	turnDivider: "on" | "off";
 	/** Label that rule with when the question below it was asked. */
 	dividerTime: "on" | "off";
+	/** Weight of the rule: a thin line, or a heavy one that actually separates. */
+	dividerStyle: "line" | "heavy";
 	/** Where the working spinner and queued messages sit relative to the prompt. */
 	spinner: "below-prompt" | "above-prompt";
 	/** Cap each answer at one screenful, anchored at its end, instead of letting it run on. */
@@ -50,6 +52,7 @@ export const DEFAULTS: ReverseConfig = {
 	stickyQuestion: "on",
 	turnDivider: "on",
 	dividerTime: "on",
+	dividerStyle: "heavy",
 	spinner: "below-prompt",
 	answerWindow: "screen",
 	answerLines: "70%",
@@ -126,6 +129,7 @@ export function sanitize(raw: unknown): ReverseConfig {
 		stickyQuestion: pick("stickyQuestion", ["on", "off"]),
 		turnDivider: pick("turnDivider", ["on", "off"]),
 		dividerTime: pick("dividerTime", ["on", "off"]),
+		dividerStyle: pick("dividerStyle", ["line", "heavy"]),
 		spinner: pick("spinner", ["below-prompt", "above-prompt"]),
 		answerWindow: pick("answerWindow", ["screen", "off"]),
 		answerLines: lines("answerLines", "screen"),

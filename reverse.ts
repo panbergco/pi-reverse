@@ -73,7 +73,10 @@ class Reversed extends Container {
 		// Everything before the first question is the startup banner: it keeps its order and stays at
 		// the far end. A resumed session has its whole transcript after that point, so it is grouped
 		// into turns like any other.
-		this.pivot = this.deep ? 0 : Math.max(0, src.findIndex((child) => isQuestion(child)));
+		// Everything before the first question is the startup banner and stays as it is. A session with
+		// no question yet is *all* banner: no turns, no rules, no reversal.
+		const firstQuestion = src.findIndex((child) => isQuestion(child));
+		this.pivot = this.deep ? 0 : firstQuestion < 0 ? src.length : firstQuestion;
 		const body = src.slice(this.pivot).map((child, index, all) => {
 			// The chat log is the document's last child: mirror it too, one level down.
 			if (!this.deep || index !== all.length - 1 || !(child instanceof Container)) return child;
@@ -380,17 +383,20 @@ class Windowed implements Component {
  */
 class Divider implements Component {
 	constructor(
-		private readonly style: (text: string) => string,
-		private readonly label: string,
+		private readonly rule: (text: string) => string,
+		private readonly label: (text: string) => string,
+		private readonly text: string,
+		private readonly heavy: boolean,
 	) {}
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
-		const text = ` ${this.label} `;
-		if (text.length + 8 > w) return ["", this.style("─".repeat(w))];
+		const dash = this.heavy ? "━" : "─";
+		const caption = ` ${this.text} `;
+		if (caption.length + 8 > w) return ["", this.rule(dash.repeat(w)), ""];
 		const left = 3;
-		const right = Math.max(1, w - left - text.length);
-		return ["", this.style(`${"─".repeat(left)}${text}${"─".repeat(right)}`)];
+		const right = Math.max(1, w - left - caption.length);
+		return ["", `${this.rule(dash.repeat(left))}${this.label(caption)}${this.rule(dash.repeat(right))}`, ""];
 	}
 
 	invalidate(): void {}
@@ -479,6 +485,8 @@ function applyLayout(
 	tui: TUI,
 	config: ReverseConfig,
 	dim: (text: string) => string,
+	bright: (text: string) => string,
+	white: (text: string) => string,
 	sticky: StickyQuestion,
 	askedAt: () => number[],
 ): string | undefined {
@@ -499,7 +507,12 @@ function applyLayout(
 		config.turnDivider === "on"
 			? (turnIndex: number) => {
 					const stamps = config.dividerTime === "on" ? askedAt() : [];
-					return new Divider(dim, dividerLabel(stamps[turnIndex], stamps[turnIndex - 1], Date.now()));
+					return new Divider(
+						config.dividerStyle === "heavy" ? bright : dim,
+						white,
+						dividerLabel(stamps[turnIndex], stamps[turnIndex - 1], Date.now()),
+						config.dividerStyle === "heavy",
+					);
 				}
 			: undefined;
 	// Measured live from the terminal, not the scroll view: a split pane resizes without the scroll
@@ -586,6 +599,7 @@ const USAGE = [
 	"/reverse sticky-question on|off  keep the question on screen while its answer scrolls",
 	"/reverse turn-divider on|off     rule between Q&A pairs",
 	"/reverse divider-time on|off     stamp that rule with when the question was asked",
+	"/reverse divider-style line|heavy  weight of that rule",
 	"/reverse window                  toggle one-screen answer windows            (alt+w)",
 	"/reverse expand                  expand / collapse the newest answer         (alt+e)",
 	"                                 alt+, / alt+. scroll inside the answer",
@@ -610,6 +624,7 @@ const KEYS: Record<string, keyof ReverseConfig> = {
 	"sticky-question": "stickyQuestion",
 	"turn-divider": "turnDivider",
 	"divider-time": "dividerTime",
+	"divider-style": "dividerStyle",
 	"answer-window": "answerWindow",
 	"answer-lines": "answerLines",
 	"older-lines": "olderLines",
@@ -635,6 +650,8 @@ export default function (pi: ExtensionAPI) {
 	let live: TUI | undefined;
 	let applyPending = true;
 	let dim: (text: string) => string = (text) => text;
+	let bright: (text: string) => string = (text) => text;
+	const white = (text: string) => `\x1b[0m\x1b[1m${text}\x1b[22m`;
 	// When each question was asked, oldest first — read from the session so a resumed transcript is
 	// labelled too. A turn we cannot place stays unlabelled rather than guessing.
 	let times: number[] = [];
@@ -661,11 +678,12 @@ export default function (pi: ExtensionAPI) {
 		ctx.ui.setWidget("pi-reverse", (tui: TUI, theme: { fg(color: string, text: string): string }) => {
 			live = tui;
 			dim = (text) => theme.fg("dim", text);
+			bright = (text) => theme.fg("accent", text);
 			if (applyPending) {
 				applyPending = false;
 				// Defer: we are inside a render pass.
 				setTimeout(() => {
-					const problem = applyLayout(tui, config, dim, sticky, questionTimes);
+					const problem = applyLayout(tui, config, dim, bright, white, sticky, questionTimes);
 					if (problem) ctx.ui.notify(problem, "warning");
 				}, 0);
 			}
@@ -728,7 +746,7 @@ export default function (pi: ExtensionAPI) {
 		config = { ...config, answerWindow: config.answerWindow === "screen" ? "off" : "screen" };
 		save(ctx);
 		if (live) {
-			const problem = applyLayout(live, config, dim, sticky, questionTimes);
+			const problem = applyLayout(live, config, dim, bright, white, sticky, questionTimes);
 			ctx.ui.notify(problem ?? `pi-reverse: answer window ${config.answerWindow}`, problem ? "warning" : "info");
 		}
 	};
@@ -796,7 +814,7 @@ export default function (pi: ExtensionAPI) {
 				register(ctx as never);
 				return;
 			}
-			const problem = applyLayout(live, config, dim, sticky, questionTimes);
+			const problem = applyLayout(live, config, dim, bright, white, sticky, questionTimes);
 			ctx.ui.notify(problem ?? describe(), problem ? "warning" : "info");
 		},
 	});
