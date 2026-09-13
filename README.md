@@ -61,13 +61,33 @@ inside it — scroll back to the bottom and it follows again.
 **Where the wheel goes is decided by the pointer**, like two panes side by side: on the **left half**
 of the terminal it scrolls *inside* the answer, on the **right half** it scrolls the transcript. No
 mode, no focus — move the mouse and you are in the other scroll. Reaching the end of an answer
-**stops there**; the transcript does not grab the wheel mid-gesture (`wheel-chain on` restores it). `wheel-zone right`
-swaps the sides, `full` gives the whole width to the answer, `off` leaves the wheel to pi.
+**stops there**; the transcript does not grab the wheel mid-gesture (`wheel-chain on` restores it).
+`wheel-zone right` swaps the sides, `full` gives the whole width to the answer, `off` leaves the
+wheel to pi.
 
-**Mouse wheel inside an answer needs pi ≥ the fix in
-[earendil-works/pi#9538](https://github.com/earendil-works/pi/issues/9538).** pi's `ScrollView`
-does not forward mouse events to its content, so on an unpatched pi the wheel only moves the
-transcript; the keyboard controls above work everywhere.
+### The mouse wheel inside an answer needs a patched pi
+
+Stock pi never forwards mouse events to anything drawn inside the transcript: its `ScrollView`
+inherits `Container.handleMouse`, and alt-screen dispatch skips layout nodes that do. The keyboard
+controls above work everywhere; the wheel-inside-an-answer does not, until that one-line seam exists.
+
+The patch is 20 lines plus tests:
+
+- Fork with the patch: **https://github.com/panbergco/pi** — branch `fix/scrollview-mouse-forwarding`
+- The change, reviewable: **https://github.com/panbergco/pi/pull/1**
+- Upstream report: **https://github.com/earendil-works/pi/issues/9538** (waiting on a maintainer
+  `lgtm`; pi only accepts PRs from approved contributors)
+
+To run it:
+
+```bash
+git clone -b fix/scrollview-mouse-forwarding https://github.com/panbergco/pi.git pi-fork
+cd pi-fork && npm ci --ignore-scripts && npm run build
+node packages/coding-agent/dist/bundle/cli.js --tui-mode fullscreen -e ~/Code/pi-reverse
+```
+
+Your own pi install, sessions and settings are untouched — it is a separate binary reading the same
+agent directory.
 
 ## Settings
 
