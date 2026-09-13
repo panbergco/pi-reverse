@@ -202,7 +202,8 @@ class Reversed extends Container {
 
 	override invalidate(): void {
 		this.sync();
-		this.dropCache();
+		// Keep off-screen rows cached. Anything visible is rendered fresh, and a row is refreshed
+		// before it enters the viewport; clearing all 1,000+ rows here made the spinner wait seconds.
 		super.invalidate();
 	}
 }
