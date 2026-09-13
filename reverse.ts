@@ -99,7 +99,8 @@ class Reversed extends Container {
 		const starts: number[] = [];
 		for (const [display, turn] of stacked.entries()) {
 			// Display order is newest first, so the seam above a turn labels that turn's own question.
-			if (children.length > 0 && this.divider) children.push(this.divider(stacked.length - 1 - display));
+			// The newest turn gets one too, which closes it into a block under the prompt.
+			if (this.divider) children.push(this.divider(stacked.length - 1 - display));
 			starts.push(children.length);
 			const parts = this.windowed(turn, starts.length === 1);
 			// Count after windowing: a windowed answer is one child, however many components it holds.
@@ -507,10 +508,13 @@ function applyLayout(
 		config.turnDivider === "on"
 			? (turnIndex: number) => {
 					const stamps = config.dividerTime === "on" ? askedAt() : [];
+					// A question the session has not recorded yet is the one just typed: it is "now",
+					// not unknown. Only older turns we genuinely cannot place stay unlabelled.
+					const stamp = stamps[turnIndex] ?? (turnIndex >= stamps.length ? Date.now() : undefined);
 					return new Divider(
 						config.dividerStyle === "heavy" ? bright : dim,
 						white,
-						dividerLabel(stamps[turnIndex], stamps[turnIndex - 1], Date.now()),
+						dividerLabel(stamp, stamps[turnIndex - 1], Date.now()),
 						config.dividerStyle === "heavy",
 					);
 				}
@@ -695,6 +699,10 @@ export default function (pi: ExtensionAPI) {
 		readTimes(ctx as never);
 		if (ctx.mode === "tui") register(ctx as never);
 	});
+	// The session records the question before the turn starts, so read it then: waiting for the turn
+	// to end would label the newest seam "time unknown" for as long as the answer takes.
+	pi.on("turn_start", async (_event, ctx) => readTimes(ctx as never));
+	pi.on("message_start", async (_event, ctx) => readTimes(ctx as never));
 	pi.on("turn_end", async (_event, ctx) => readTimes(ctx as never));
 
 	pi.on("input", async (event) => {
