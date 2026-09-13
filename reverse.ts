@@ -206,6 +206,8 @@ class Windowed implements Component {
 
 	constructor(
 		private readonly inner: Container,
+		/** Which half of the pane owns the wheel for this window. */
+		private readonly zone: () => "left" | "right" | "full" | "off",
 		/** Final window height; receives what this turn already spends above the window. */
 		private readonly maxLines: (reserve: number) => number,
 		private readonly style: (text: string) => string,
@@ -229,6 +231,21 @@ class Windowed implements Component {
 		if (next === current) return false;
 		this.anchor = next >= this.maxStart ? undefined : next;
 		return true;
+	}
+
+	private wheelHint(): string {
+		const zone = this.zone();
+		if (zone === "off") return "alt+, / alt+.";
+		if (zone === "full") return "wheel or alt+, / alt+.";
+		return `wheel on the ${zone} half`;
+	}
+
+	private ownsWheel(x: number, width: number): boolean {
+		const zone = this.zone();
+		if (zone === "off") return false;
+		if (zone === "full") return true;
+		const middle = Math.floor(width / 2);
+		return zone === "left" ? x < middle : x >= middle;
 	}
 
 	/** Height of the rendered window, markers included — needed to know what the pointer is over. */
@@ -267,7 +284,7 @@ class Windowed implements Component {
 		this.start = start;
 		const head =
 			start > 0
-				? [this.style(`  \u22ef ${start} line${start === 1 ? "" : "s"} above · wheel or alt+, / alt+. · alt+e expands`)]
+				? [this.style(`  \u22ef ${start} line${start === 1 ? "" : "s"} above · ${this.wheelHint()} · alt+e expands`)]
 				: [];
 		const hiddenBelow = lines.length - start - max;
 		const foot = hiddenBelow > 0 ? [this.style(`  \u22ef ${hiddenBelow} below · wheel down to follow again`)] : [];
@@ -283,8 +300,9 @@ class Windowed implements Component {
 
 	handleMouse(event: TuiMouseEvent) {
 		// Wheel up (negative delta) walks back into the hidden part; wheel down returns to the end.
-		// At either end of the window the event is left alone, so the transcript scrolls instead.
-		if (event.type === "wheel" && event.wheelDelta) {
+		// The wheel belongs to this window only in its half of the pane, and only while it has room:
+		// at either end the event is left alone so the transcript scrolls instead.
+		if (event.type === "wheel" && event.wheelDelta && this.ownsWheel(event.x, event.width)) {
 			return this.scrollByLines(event.wheelDelta) ? { handled: true } : undefined;
 		}
 		return this.inner.handleMouse?.({ ...event, y: event.y - this.lead + this.start });
@@ -415,7 +433,8 @@ function applyLayout(
 	};
 	const window =
 		config.answerWindow === "screen"
-			? (answer: Component, newest: boolean) => new Windowed(answer as Container, height(newest), dim)
+			? (answer: Component, newest: boolean) =>
+					new Windowed(answer as Container, () => config.wheelZone, height(newest), dim)
 			: undefined;
 	const mirror = newestFirst ? new Reversed(document, true, divider, window) : undefined;
 	const transcript = new ScrollView(mirror ?? document, {
@@ -473,6 +492,7 @@ const USAGE = [
 	"/reverse answer-window screen|off",
 	"/reverse answer-lines 70%|screen|3..200   height of the newest answer",
 	"/reverse older-lines same|3..200      height of answers in older pairs",
+	"/reverse wheel-zone left|right|full|off  which half of the pane scrolls inside an answer",
 	"/reverse follow-tail on|off      keep a streaming answer's last line in view",
 	"/reverse tail-margin 0..5        slack kept below that line",
 	"/reverse pad-outer 0..5          blank lines at the screen edge",
@@ -491,6 +511,7 @@ const KEYS: Record<string, keyof ReverseConfig> = {
 	"answer-window": "answerWindow",
 	"answer-lines": "answerLines",
 	"older-lines": "olderLines",
+	"wheel-zone": "wheelZone",
 	"pad-outer": "padOuter",
 	"pad-transient": "padTransient",
 	"follow-tail": "followTail",
@@ -601,7 +622,7 @@ export default function (pi: ExtensionAPI) {
 		handler: async (args, ctx) => {
 			const [rawKey, rawValue] = String(args ?? "").trim().split(/\s+/);
 			const describe = () =>
-				`pi-reverse: dock ${config.dock} · order ${config.order} · status-bar ${config.statusBar} · spinner ${config.spinner} · sticky-question ${config.stickyQuestion} · turn-divider ${config.turnDivider} · follow-tail ${config.followTail} · tail-margin ${config.tailMargin} · pad-outer ${config.padOuter} · pad-transient ${config.padTransient} · answer-window ${config.answerWindow} · answer-lines ${config.answerLines} · older-lines ${config.olderLines}`;
+				`pi-reverse: dock ${config.dock} · order ${config.order} · status-bar ${config.statusBar} · spinner ${config.spinner} · sticky-question ${config.stickyQuestion} · turn-divider ${config.turnDivider} · follow-tail ${config.followTail} · tail-margin ${config.tailMargin} · pad-outer ${config.padOuter} · pad-transient ${config.padTransient} · answer-window ${config.answerWindow} · answer-lines ${config.answerLines} · older-lines ${config.olderLines} · wheel-zone ${config.wheelZone}`;
 
 			if (!rawKey) {
 				ctx.ui.notify(`${describe()}\n\n${USAGE}`, "info");

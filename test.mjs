@@ -91,3 +91,10 @@ assert.equal(sanitize({ olderLines: "same" }).olderLines, "same");
 assert.equal(sanitize({ olderLines: 999 }).olderLines, 6);
 
 console.log("pi-reverse: answer height checks passed");
+
+// --- wheel zone: half the pane scrolls the answer, the other half the transcript ---
+assert.equal(sanitize({}).wheelZone, "left");
+assert.equal(sanitize({ wheelZone: "right" }).wheelZone, "right");
+assert.equal(sanitize({ wheelZone: "sideways" }).wheelZone, "left");
+
+console.log("pi-reverse: wheel zone checks passed");

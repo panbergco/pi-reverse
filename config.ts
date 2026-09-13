@@ -31,6 +31,8 @@ export interface ReverseConfig {
 	answerLines: "screen" | `${number}%` | number;
 	/** Height of answers in older pairs, so the stack stays scannable. */
 	olderLines: "same" | number;
+	/** Which half of the pane scrolls inside an answer; the other half scrolls the transcript. */
+	wheelZone: "left" | "right" | "full" | "off";
 }
 
 export const DEFAULTS: ReverseConfig = {
@@ -47,6 +49,7 @@ export const DEFAULTS: ReverseConfig = {
 	answerWindow: "screen",
 	answerLines: "70%",
 	olderLines: 6,
+	wheelZone: "left",
 };
 
 /** pi mounts exactly these regions, in this order (interactive-mode init). */
@@ -120,5 +123,6 @@ export function sanitize(raw: unknown): ReverseConfig {
 		answerWindow: pick("answerWindow", ["screen", "off"]),
 		answerLines: lines("answerLines", "screen"),
 		olderLines: lines("olderLines", "same"),
+		wheelZone: pick("wheelZone", ["left", "right", "full", "off"]),
 	};
 }

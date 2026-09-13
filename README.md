@@ -59,6 +59,11 @@ sits next to the question instead of a screen-and-a-half below it. A dim marker 
 hidden. The window follows the text while it streams, and stops following the moment you scroll
 inside it — scroll back to the bottom and it follows again.
 
+**Where the wheel goes is decided by the pointer**, like two panes side by side: on the **left half**
+of the terminal it scrolls *inside* the answer, on the **right half** it scrolls the transcript. No
+mode, no focus, no trapping — move the mouse and you are in the other scroll. `wheel-zone right`
+swaps the sides, `full` gives the whole width to the answer, `off` leaves the wheel to pi.
+
 **Mouse wheel inside an answer needs pi ≥ the fix in
 [earendil-works/pi#9538](https://github.com/earendil-works/pi/issues/9538).** pi's `ScrollView`
 does not forward mouse events to its content, so on an unpatched pi the wheel only moves the
@@ -77,6 +82,7 @@ transcript; the keyboard controls above work everywhere.
 | `spinner` | `below-prompt` `above-prompt` | `below-prompt` | where the working spinner and queued messages go |
 | `answer-lines` | `70%`, `screen`, or `3..200` | `70%` | height of the newest answer |
 | `older-lines` | `same` or `3..200` | `6` | height of answers in older pairs |
+| `wheel-zone` | `left` `right` `full` `off` | `left` | which half of the pane scrolls inside an answer |
 | `sticky-question` | `on` `off` | `on` | keep the question on screen once it scrolls away |
 | `turn-divider` | `on` `off` | `on` | rule between Q&A pairs |
 | `follow-tail` | `on` `off` | `on` | chase a streaming answer instead of letting it grow past the fold |
