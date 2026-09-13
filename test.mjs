@@ -109,6 +109,7 @@ console.log("pi-reverse: wheel chain checks passed");
 
 // --- the seam is labelled with when the question below it was asked ---
 import { dividerLabel } from "./reverse-label.ts";
+import { matchQuestionTimes, messageText } from "./turn-time.ts";
 const T = Date.parse("2026-09-13T08:00:00Z");
 assert.match(dividerLabel(T, undefined, T + 30_000), /just now/);
 assert.match(dividerLabel(T, undefined, T + 20 * 60_000), /20m ago/);
@@ -119,6 +120,20 @@ assert.match(dividerLabel(T, T - 4 * 3_600_000, T + 60_000), /4h later/);
 assert.equal(dividerLabel(undefined, undefined, T), "time unknown");
 
 console.log("pi-reverse: divider label checks passed");
+
+// --- resumed/compacted sessions match timestamps by question, never by partial display index ---
+const records = Array.from({ length: 783 }, (_, index) => ({ text: `question ${index}`, at: T + index * 60_000 }));
+records[100] = { text: "go", at: T + 100 * 60_000 };
+records[782] = { text: "go", at: T + 782 * 60_000 };
+const matched = matchQuestionTimes(["go", "question 781", "question 780"], records);
+assert.equal(matched[0].at, records[782].at); // repeated text takes the newest matching message
+assert.equal(matched[1].at, records[781].at);
+assert.equal(matched[2].at, records[780].at);
+assert.equal(matched[0].previous, records[781].at);
+assert.equal(matchQuestionTimes(["not in this session"], records)[0].at, undefined);
+assert.equal(messageText([{ type: "text", text: "hello" }, { type: "image", data: "ignored" }]), "hello");
+
+console.log("pi-reverse: resumed-session timestamp checks passed");
 
 // --- regression: invalidating a long transcript must not throw away every off-screen row ---
 // That made the working indicator wait 4.9s on a 1,000-message session. Width changes still clear

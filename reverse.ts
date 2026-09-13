@@ -21,6 +21,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { configFile, DEFAULTS, dockOrder, type ReverseConfig, readConfig, sanitize } from "./config.ts";
 import { dividerLabel } from "./reverse-label.ts";
+import { matchQuestionTimes, messageText, type QuestionRecord } from "./turn-time.ts";
 import { groupTurns, isQuestion, nextTurnOffset, reverseTurns } from "./turns.ts";
 
 /** pi mounts exactly these regions, in this order (interactive-mode init). */
@@ -38,8 +39,8 @@ class Reversed extends Container {
 		private readonly source: Container,
 		/** Also reverse the last source child (the chat log inside the document). */
 		private readonly deep: boolean,
-		/** Optional rule drawn between turns; receives the chronological index of the turn below it. */
-		private readonly divider?: (turnIndex: number) => Component,
+		/** Optional rules, one per turn in newest-first display order. */
+		private readonly divider?: (turnsNewestFirst: Component[][]) => Component[],
 		/** Optional window around each answer; newest and older turns can differ. */
 		private readonly window?: (answer: Component, newest: boolean) => Component,
 	) {
@@ -97,10 +98,10 @@ class Reversed extends Container {
 		const stacked = (groupTurns(body) as Component[][]).reverse();
 		const children: Component[] = [];
 		const starts: number[] = [];
+		const dividers = this.divider?.(stacked) ?? [];
 		for (const [display, turn] of stacked.entries()) {
-			// Display order is newest first, so the seam above a turn labels that turn's own question.
-			// The newest turn gets one too, which closes it into a block under the prompt.
-			if (this.divider) children.push(this.divider(stacked.length - 1 - display));
+			// Every turn gets a seam above it, including the newest one under the prompt.
+			if (dividers[display]) children.push(dividers[display]);
 			starts.push(children.length);
 			const parts = this.windowed(turn, starts.length === 1);
 			// Count after windowing: a windowed answer is one child, however many components it holds.
@@ -490,7 +491,7 @@ function applyLayout(
 	bright: (text: string) => string,
 	white: (text: string) => string,
 	sticky: StickyQuestion,
-	askedAt: () => number[],
+	questions: () => QuestionRecord[],
 ): string | undefined {
 	if (tui.mode !== "fullscreen") return "pi-reverse needs fullscreen mode — set tuiMode: fullscreen";
 	if (!isViewportTUI(tui)) return "pi-reverse: this pi build has no layout root";
@@ -507,17 +508,23 @@ function applyLayout(
 	const newestFirst = config.order === "newest-first";
 	const divider =
 		config.turnDivider === "on"
-			? (turnIndex: number) => {
-					const stamps = config.dividerTime === "on" ? askedAt() : [];
-					// A question the session has not recorded yet is the one just typed: it is "now",
-					// not unknown. Only older turns we genuinely cannot place stay unlabelled.
-					const stamp = stamps[turnIndex] ?? (turnIndex >= stamps.length ? Date.now() : undefined);
-					return new Divider(
-						config.dividerStyle === "heavy" ? bright : dim,
-						white,
-						dividerLabel(stamp, stamps[turnIndex - 1], Date.now()),
-						config.dividerStyle === "heavy",
-					);
+			? (turns: Component[][]) => {
+					const texts = turns.map((turn) => {
+						const question = turn.find(isQuestion) as (Component & { text?: unknown }) | undefined;
+						return typeof question?.text === "string" ? question.text : "";
+					});
+					const matched = config.dividerTime === "on" ? matchQuestionTimes(texts, questions()) : [];
+					return turns.map((_turn, index) => {
+						const found = matched[index];
+						// An unmatched newest question is the one just submitted and not persisted yet.
+						const stamp = found?.at ?? (index === 0 ? Date.now() : undefined);
+						return new Divider(
+							config.dividerStyle === "heavy" ? bright : dim,
+							white,
+							dividerLabel(stamp, found?.previous, Date.now()),
+							config.dividerStyle === "heavy",
+						);
+					});
 				}
 			: undefined;
 	// Measured live from the terminal, not the scroll view: a split pane resizes without the scroll
@@ -657,22 +664,22 @@ export default function (pi: ExtensionAPI) {
 	let dim: (text: string) => string = (text) => text;
 	let bright: (text: string) => string = (text) => text;
 	const white = (text: string) => `\x1b[0m\x1b[1m${text}\x1b[22m`;
-	// When each question was asked, oldest first — read from the session so a resumed transcript is
-	// labelled too. A turn we cannot place stays unlabelled rather than guessing.
-	let times: number[] = [];
-	const questionTimes = () => times;
+	// Every question with its own identity and time, oldest first. A compacted transcript is only a
+	// suffix of this list, so divider lookup matches the text rather than indexing by screen position.
+	let records: QuestionRecord[] = [];
+	const questionTimes = () => records;
 	const readTimes = (ctx: { sessionManager?: { getBranch?: () => unknown[] } }): void => {
 		try {
 			const branch = ctx.sessionManager?.getBranch?.() ?? [];
-			times = branch
-				.filter((entry) => {
-					const e = entry as { type?: string; message?: { role?: string } };
-					return e.type === "message" && e.message?.role === "user";
-				})
-				.map((entry) => Date.parse((entry as { timestamp?: string }).timestamp ?? ""))
-				.filter((value) => Number.isFinite(value));
+			records = branch.flatMap((entry) => {
+				const e = entry as { type?: string; timestamp?: string; message?: { role?: string; content?: unknown } };
+				if (e.type !== "message" || e.message?.role !== "user") return [];
+				const at = Date.parse(e.timestamp ?? "");
+				const text = messageText(e.message.content);
+				return Number.isFinite(at) && text ? [{ text, at }] : [];
+			});
 		} catch {
-			times = [];
+			records = [];
 		}
 	};
 	const sticky = new StickyQuestion((text) => dim(text));
