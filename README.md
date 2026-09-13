@@ -159,7 +159,9 @@ pointer, and a light rule divides them so a pair always reads as two parts:
 
 ```text
  the question, up to its share of the pair
-  ⋯ 35 more lines ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+
+  ⋯ 35 more lines ──────────────────────────────────────────────────
+
   ⋯ 50 lines above · wheel on the left half · alt+e expands
  the answer, holding the rest
 ```

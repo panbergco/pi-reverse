@@ -41,8 +41,10 @@ export function questionEdge(hiddenBelow: number): string {
 export function ruleTo(label: string, width: number): string {
 	const text = label === "RULE" ? "" : `${label} `;
 	const lead = "  ";
+	// A solid light rule, not a dotted one: dotted read as a smudge between the two halves rather
+	// than as the line dividing them. Still lighter than the heavy seam that closes the whole pair.
 	const fill = Math.max(0, width - lead.length - text.length);
-	return `${lead}${text}${"\u2508".repeat(fill)}`;
+	return `${lead}${text}${"\u2500".repeat(fill)}`;
 }
 
 // Built once. `toLocaleTimeString` with options constructs a formatter on every call — measured at

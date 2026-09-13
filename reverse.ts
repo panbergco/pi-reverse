@@ -375,7 +375,9 @@ class Windowed implements Component {
 			this.lead = 0;
 			this.clipped = false;
 			// The boundary is drawn whether or not anything is folded: it is what divides the pair.
-			const out = this.fromTop ? [...lines, this.style(ruleTo("RULE", width))] : lines;
+			// It carries a blank line on each side, because a rule pressed against the text above and
+			// the marker below reads as one more crowded row instead of as a division.
+			const out = this.fromTop ? [...lines, "", this.style(ruleTo("RULE", width)), ""] : lines;
 			this.height = out.length;
 			return out;
 		}
@@ -395,7 +397,9 @@ class Windowed implements Component {
 		const head = above ? this.style(above) : "";
 		const foot = below ? this.style(below) : "";
 		this.lead = 1;
-		const out = [head, ...lines.slice(start, start + max), foot];
+		// The question's boundary gets air on both sides; an answer's marker sits where it always did.
+		const tail = this.fromTop ? ["", foot, ""] : [foot];
+		const out = [head, ...lines.slice(start, start + max), ...tail];
 		this.height = out.length;
 		return out;
 	}
