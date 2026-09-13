@@ -108,7 +108,7 @@ assert.equal(sanitize({ wheelChain: "on" }).wheelChain, "on");
 console.log("pi-reverse: wheel chain checks passed");
 
 // --- the seam is labelled with when the question below it was asked ---
-import { dividerLabel } from "./reverse-label.ts";
+import { dividerLabel, windowEdgeLabels } from "./reverse-label.ts";
 import { matchQuestionTimes, messageText } from "./turn-time.ts";
 const T = Date.parse("2026-09-13T08:00:00Z");
 assert.match(dividerLabel(T, undefined, T + 30_000), /just now/);
@@ -120,6 +120,20 @@ assert.match(dividerLabel(T, T - 4 * 3_600_000, T + 60_000), /4h later/);
 assert.equal(dividerLabel(undefined, undefined, T), "time unknown");
 
 console.log("pi-reverse: divider label checks passed");
+
+// --- inner scrolling never changes the answer window's height ---
+const atEnd = windowEdgeLabels(40, 0, "wheel on the left half");
+const inMiddle = windowEdgeLabels(20, 20, "wheel on the left half");
+const atStart = windowEdgeLabels(0, 40, "wheel on the left half");
+assert.equal(atEnd.length, 2);
+assert.equal(inMiddle.length, 2);
+assert.equal(atStart.length, 2);
+assert.equal(atEnd[1], "");
+assert.equal(atStart[0], "");
+assert.match(inMiddle[0], /20 lines above/);
+assert.match(inMiddle[1], /20 below/);
+
+console.log("pi-reverse: fixed-height answer window checks passed");
 
 // --- resumed/compacted sessions match timestamps by question, never by partial display index ---
 const records = Array.from({ length: 783 }, (_, index) => ({ text: `question ${index}`, at: T + index * 60_000 }));

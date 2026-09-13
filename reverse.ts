@@ -20,7 +20,7 @@ import {
 	VStack,
 } from "@earendil-works/pi-tui";
 import { configFile, DEFAULTS, dockOrder, type ReverseConfig, readConfig, sanitize } from "./config.ts";
-import { dividerLabel } from "./reverse-label.ts";
+import { dividerLabel, windowEdgeLabels } from "./reverse-label.ts";
 import { matchQuestionTimes, messageText, type QuestionRecord } from "./turn-time.ts";
 import { groupTurns, isQuestion, nextTurnOffset, reverseTurns } from "./turns.ts";
 
@@ -351,14 +351,14 @@ class Windowed implements Component {
 		// Following the end unless the reader scrolled: then their line stays put while text arrives.
 		const start = this.anchor === undefined ? maxStart : Math.min(this.anchor, maxStart);
 		this.start = start;
-		const head =
-			start > 0
-				? [this.style(`  \u22ef ${start} line${start === 1 ? "" : "s"} above · ${this.wheelHint()} · alt+e expands`)]
-				: [];
 		const hiddenBelow = lines.length - start - max;
-		const foot = hiddenBelow > 0 ? [this.style(`  \u22ef ${hiddenBelow} below · wheel down to follow again`)] : [];
-		this.lead = head.length;
-		const out = [...head, ...lines.slice(start, start + max), ...foot];
+		const [above, below] = windowEdgeLabels(start, hiddenBelow, this.wheelHint());
+		// Both rows stay present at every inner-scroll position. Before this, entering the middle added
+		// a second marker row and pushed the next Q&A pair down one line; reaching an edge removed it.
+		const head = above ? this.style(above) : "";
+		const foot = below ? this.style(below) : "";
+		this.lead = 1;
+		const out = [head, ...lines.slice(start, start + max), foot];
 		this.height = out.length;
 		return out;
 	}
