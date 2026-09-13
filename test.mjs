@@ -104,3 +104,16 @@ assert.equal(sanitize({}).wheelChain, "off");
 assert.equal(sanitize({ wheelChain: "on" }).wheelChain, "on");
 
 console.log("pi-reverse: wheel chain checks passed");
+
+// --- the seam is labelled with when the question below it was asked ---
+import { dividerLabel } from "./reverse-label.ts";
+const T = Date.parse("2026-09-13T08:00:00Z");
+assert.match(dividerLabel(T, undefined, T + 30_000), /just now/);
+assert.match(dividerLabel(T, undefined, T + 20 * 60_000), /20m ago/);
+assert.match(dividerLabel(T, undefined, T + 3 * 3_600_000), /3h ago/);
+// A long pause between turns is announced instead of the age.
+assert.match(dividerLabel(T, T - 4 * 3_600_000, T + 60_000), /4h later/);
+// No timestamp says so rather than guessing.
+assert.equal(dividerLabel(undefined, undefined, T), "time unknown");
+
+console.log("pi-reverse: divider label checks passed");
