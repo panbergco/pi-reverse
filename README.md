@@ -19,7 +19,24 @@ closed out-of-scope, Dec 2025).
   ALPHA-ANSWER
 ```
 
-It is a plain pi extension — no fork, no patched install, survives `pi update`.
+The layout is a plain pi extension and survives `pi update`. Keyboard navigation works on stock pi;
+the mouse wheel inside an answer needs the small `ScrollView` patch linked below.
+
+## What changed since the first release
+
+The first build only moved the prompt and reversed individual messages. **v0.15** is a different,
+usable model:
+
+- **Q&A turns, not reversed messages** — newest pair first; every question still reads into its answer.
+- **Dynamic answer windows** — every long response gets 70% of the pane and its own inner scroll.
+- **Split-wheel navigation** — left half scrolls the answer; right half scrolls the conversation.
+- **Native follow behaviour** — scrolling away releases the live stream; returning resumes it.
+- **Labelled turn blocks** — heavy seams carry the question's real time, including resumed and
+  compacted sessions and repeated prompts such as `go`.
+- **Stable geometry** — inner scrolling never pushes the next Q&A pair down by a row.
+- **Existing sessions remain untouched** — the extension changes rendering, not session files.
+- **Long-session performance** — foreground spinner measured **4.9s → 18ms**; wheel repaint measured
+  **25–28ms** on a 1,000+ message session.
 
 ---
 
@@ -95,13 +112,17 @@ warning instead of half-applying.
 ```
 
 Every pair is closed by a seam above **and** below it, so a turn reads as one block rather than as
-text that happens to be next to other text. The rule is labelled with when the question below it was asked. A border inside an
-answer never carries a time, so the seam can no longer be confused with one — and when a turn follows
-a long pause the label says so instead (`4h later · 08:14`), which is how you find where you picked
-the session back up. A turn whose time cannot be established reads `time unknown` rather than
-guessing. Resumed and compacted sessions match each visible question back to its session record by
-text (newest match first), rather than indexing a partial display into the full timestamp history. The rule is drawn heavy and in the theme accent, the time in bright white, so the seam
-outranks every border that appears *inside* an answer — `divider-style line` for the thin version.
+text that happens to be next to other text. The rule is labelled with when the question below it was
+asked. A border inside an answer never carries a time, so the seam cannot be confused with one.
+
+When a turn follows a long pause, the label says so instead (`4h later · 08:14`) — the moment where
+you picked the session back up becomes visible. A turn whose time cannot be established reads
+`time unknown` rather than guessing. Resumed and compacted sessions match each visible question to
+its session record by text (newest match first), rather than indexing a partial display into the
+full timestamp history.
+
+The rule is heavy and uses the theme accent; the time is bright white, so the seam outranks every
+border *inside* an answer. Use `divider-style line` for the thin version.
 
 Startup output (the banner, context and resource lists) is not a turn: it keeps its own order and
 gets no rules between its pieces.
