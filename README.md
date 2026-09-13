@@ -237,6 +237,12 @@ from the last render instead of re-rendering to find the target.
 Measured on a 1,165-component session at 245x59, wheel-to-repaint: **25-28 ms** median with
 pi-reverse, **45-73 ms** for stock pi on the same transcript.
 
+**Per-frame work is proportional to the screen, never to the session.** The seam timestamps are
+matched by question text, so a resumed transcript is labelled correctly — but that index is built
+once and extended as the session grows. Rebuilding it per frame (v0.14.0-v0.15.0) cost 65 ms of
+every repaint on a 9,269-question session; a streaming answer repaints ~24 times, so it was seconds
+per turn. Measured on that session: **80 ms -> 2.4 ms** per frame, **578 ms -> 38 ms** per submit.
+
 ## Known limits
 
 - **Leans on pi internals** (the seven mounted regions, and `UserMessageComponent` as the marker for
