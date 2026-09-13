@@ -94,7 +94,8 @@ warning instead of half-applying.
 ━━━ 04:19 AM · 1h ago ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-The rule between two turns is labelled with when the question below it was asked. A border inside an
+Every pair is closed by a seam above **and** below it, so a turn reads as one block rather than as
+text that happens to be next to other text. The rule is labelled with when the question below it was asked. A border inside an
 answer never carries a time, so the seam can no longer be confused with one — and when a turn follows
 a long pause the label says so instead (`4h later · 08:14`), which is how you find where you picked
 the session back up. A turn whose time cannot be established reads `time unknown` rather than
