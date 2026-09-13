@@ -438,19 +438,20 @@ function followTail(): void {
 	const height = tail.mirror.inner?.newestTurnHeight ?? 0;
 	const target = Math.max(0, height - tail.transcript.viewportHeight + tail.margin);
 	const at = tail.transcript.scrollTop;
-	if (tail.owned !== undefined && Math.abs(at - tail.owned) >= 1) {
-		// The reader moved the transcript themselves; leave it alone until they come back.
-		tail.released = at < target - 1;
-	}
+	// Any position we did not put them in is the reader's own: stop following, in either direction.
+	if (tail.owned !== undefined && Math.abs(at - tail.owned) >= 1) tail.released = true;
+	// Coming back to where the stream is lands them at the live edge again, like every chat does.
+	if (tail.released && Math.abs(at - target) <= 1) tail.released = false;
 	if (tail.released) {
 		tail.owned = at;
 		return;
 	}
 	if (Math.abs(at - target) >= 1) tail.transcript.scrollTo(target);
-	tail.owned = target;
+	tail.owned = tail.transcript.scrollTop;
 	// Once the question itself has scrolled out of the viewport, show it as a pinned line instead.
 	if (tail.sticky) tail.sticky.visible = target > 0;
 }
+
 
 /** A new question starts a new turn: follow it again. */
 function resumeFollowing(): void {
