@@ -101,6 +101,16 @@ root in the order you configure, and feeds the transcript a mirror container tha
 log into turns — a turn starts at each user question — and reverses the **groups**, never their
 contents.
 
+## Performance
+
+A long transcript is thousands of lines. Re-rendering all of it every frame is what made scrolling
+crawl, so off-screen turns keep the lines they produced last time and are rendered again as soon as
+they come near the viewport — nothing stale is ever on screen. Mouse hit-testing uses the layout
+from the last render instead of re-rendering to find the target.
+
+Measured on a 1,165-component session at 245x59, wheel-to-repaint: **25-28 ms** median with
+pi-reverse, **45-73 ms** for stock pi on the same transcript.
+
 ## Known limits
 
 - **Leans on pi internals** (the seven mounted regions, and `UserMessageComponent` as the marker for
