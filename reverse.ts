@@ -21,7 +21,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { configFile, DEFAULTS, dockOrder, type ReverseConfig, readConfig, sanitize } from "./config.ts";
 import { dividerLabel, windowEdgeLabels } from "./reverse-label.ts";
-import { matchQuestionTimes, messageText, type QuestionRecord } from "./turn-time.ts";
+import { messageText, type QuestionRecord, QuestionTimes } from "./turn-time.ts";
 import { groupTurns, isQuestion, nextTurnOffset, reverseTurns } from "./turns.ts";
 
 /** pi mounts exactly these regions, in this order (interactive-mode init). */
@@ -491,7 +491,7 @@ function applyLayout(
 	bright: (text: string) => string,
 	white: (text: string) => string,
 	sticky: StickyQuestion,
-	questions: () => QuestionRecord[],
+	questions: () => QuestionTimes,
 ): string | undefined {
 	if (tui.mode !== "fullscreen") return "pi-reverse needs fullscreen mode — set tuiMode: fullscreen";
 	if (!isViewportTUI(tui)) return "pi-reverse: this pi build has no layout root";
@@ -513,7 +513,7 @@ function applyLayout(
 						const question = turn.find(isQuestion) as (Component & { text?: unknown }) | undefined;
 						return typeof question?.text === "string" ? question.text : "";
 					});
-					const matched = config.dividerTime === "on" ? matchQuestionTimes(texts, questions()) : [];
+					const matched = config.dividerTime === "on" ? questions().match(texts) : [];
 					return turns.map((_turn, index) => {
 						const found = matched[index];
 						// An unmatched newest question is the one just submitted and not persisted yet.
@@ -666,20 +666,21 @@ export default function (pi: ExtensionAPI) {
 	const white = (text: string) => `\x1b[0m\x1b[1m${text}\x1b[22m`;
 	// Every question with its own identity and time, oldest first. A compacted transcript is only a
 	// suffix of this list, so divider lookup matches the text rather than indexing by screen position.
-	let records: QuestionRecord[] = [];
-	const questionTimes = () => records;
+	const times = new QuestionTimes();
+	const questionTimes = () => times;
 	const readTimes = (ctx: { sessionManager?: { getBranch?: () => unknown[] } }): void => {
 		try {
 			const branch = ctx.sessionManager?.getBranch?.() ?? [];
-			records = branch.flatMap((entry) => {
+			const records = branch.flatMap((entry) => {
 				const e = entry as { type?: string; timestamp?: string; message?: { role?: string; content?: unknown } };
 				if (e.type !== "message" || e.message?.role !== "user") return [];
 				const at = Date.parse(e.timestamp ?? "");
 				const text = messageText(e.message.content);
 				return Number.isFinite(at) && text ? [{ text, at }] : [];
-			});
+			}) as QuestionRecord[];
+			times.sync(records);
 		} catch {
-			records = [];
+			/* a history that cannot be read leaves the index as it stands */
 		}
 	};
 	const sticky = new StickyQuestion((text) => dim(text));

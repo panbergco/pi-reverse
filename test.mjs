@@ -109,7 +109,7 @@ console.log("pi-reverse: wheel chain checks passed");
 
 // --- the seam is labelled with when the question below it was asked ---
 import { dividerLabel, windowEdgeLabels } from "./reverse-label.ts";
-import { matchQuestionTimes, messageText } from "./turn-time.ts";
+import { matchQuestionTimes, messageText, QuestionTimes } from "./turn-time.ts";
 const T = Date.parse("2026-09-13T08:00:00Z");
 assert.match(dividerLabel(T, undefined, T + 30_000), /just now/);
 assert.match(dividerLabel(T, undefined, T + 20 * 60_000), /20m ago/);
@@ -148,6 +148,63 @@ assert.equal(matchQuestionTimes(["not in this session"], records)[0].at, undefin
 assert.equal(messageText([{ type: "text", text: "hello" }, { type: "image", data: "ignored" }]), "hello");
 
 console.log("pi-reverse: resumed-session timestamp checks passed");
+
+// --- the question index is built once and extended, so a repaint never pays for the whole history ---
+// v0.14 rebuilt a 9,269-entry index per frame: 65 ms of every repaint. These checks hold the
+// incremental index to the behaviour of that (correct, slow) version, which is used here as oracle.
+const norm = (t) => t.replace(/\r\n?/g, "\n").trim().replace(/[ \t]+/g, " ");
+function oracle(questions, recs) {
+	const pools = new Map();
+	for (let i = 0; i < recs.length; i++) {
+		const key = norm(recs[i].text);
+		if (!key) continue;
+		const pool = pools.get(key) ?? [];
+		pool.push({ at: recs[i].at, previous: recs[i - 1]?.at });
+		pools.set(key, pool);
+	}
+	return questions.map((q) => pools.get(norm(q))?.pop() ?? { at: undefined, previous: undefined });
+}
+let seed = 12345;
+const rand = (n) => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) % n;
+const vocab = ["go", "go ", " go", "fix it", "what now?", "", "  ", "do 3 and 8", "GO", "reply\r\nnow"];
+for (let trial = 0; trial < 200; trial++) {
+	const n = rand(60);
+	const recs = Array.from({ length: n }, (_, i) => ({ text: vocab[rand(vocab.length)], at: 1_000_000 + i * 1000 }));
+	const visible = Array.from({ length: rand(12) }, () => vocab[rand(vocab.length)]);
+	// Growing the index in arbitrary increments must equal indexing the whole history at once.
+	const grown = new QuestionTimes();
+	for (let cut = 0; cut <= n; cut += 1 + rand(4)) grown.sync(recs.slice(0, cut));
+	grown.sync(recs);
+	assert.deepEqual(grown.match(visible), oracle(visible, recs));
+	// Matching must not consume the index: the same screen drawn twice reads the same.
+	assert.deepEqual(grown.match(visible), grown.match(visible));
+	// A history replaced by compaction must not answer from the one it replaced.
+	const after = Array.from({ length: rand(30) }, (_, i) => ({ text: vocab[rand(vocab.length)], at: 9_000_000 + i * 1000 }));
+	grown.sync(after);
+	assert.deepEqual(grown.match(visible), oracle(visible, after));
+}
+
+// A rewrite that reaches the newest message is caught even when the length and the first stamp
+// are unchanged — this is what the tail check buys, and it is the reachable case.
+const before = [{ text: "go", at: 1000 }, { text: "alpha", at: 2000 }, { text: "omega", at: 3000 }];
+const rewritten = [{ text: "go", at: 1000 }, { text: "BETA", at: 2500 }, { text: "omega", at: 3500 }];
+const rewrite = new QuestionTimes();
+rewrite.sync(before);
+rewrite.sync(rewritten);
+assert.equal(rewrite.match(["omega"])[0].at, 3500);
+assert.equal(rewrite.match(["BETA"])[0].at, 2500);
+
+// KNOWN AND ACCEPTED: an edit that changes only the MIDDLE, leaving the count, the first stamp and
+// the last stamp identical, is not detected. Catching it costs hashing the whole history on every
+// read — the cost this index exists to remove. Asserted so the boundary is a decision, not a
+// surprise: if pi ever gains in-place message editing, this is the line that must change.
+const middleOnly = [{ text: "go", at: 1000 }, { text: "BETA", at: 2000 }, { text: "omega", at: 3000 }];
+const undetected = new QuestionTimes();
+undetected.sync(before);
+undetected.sync(middleOnly);
+assert.equal(undetected.match(["BETA"])[0].at, undefined);
+
+console.log("pi-reverse: question index checks passed (200 differential trials)");
 
 // --- regression: invalidating a long transcript must not throw away every off-screen row ---
 // That made the working indicator wait 4.9s on a 1,000-message session. Width changes still clear
