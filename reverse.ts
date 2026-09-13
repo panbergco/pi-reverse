@@ -250,7 +250,7 @@ class Windowed implements Component {
 
 	render(width: number): string[] {
 		const lines = this.inner.render(width);
-		const max = Math.max(3, this.maxLines(this.reserve));
+		const max = Math.max(5, this.maxLines(this.reserve));
 		// Images are drawn with escape sequences spanning rows; slicing them corrupts the screen.
 		if (this.expanded || lines.length <= max || lines.some((line) => IMAGE_PREFIXES.some((p) => line.includes(p)))) {
 			this.start = 0;
@@ -398,15 +398,20 @@ function applyLayout(
 
 	const newestFirst = config.order === "newest-first";
 	const divider = config.turnDivider === "on" ? () => new Divider(dim) : undefined;
-	// One screenful, measured live: resizing the terminal resizes every answer window with it.
+	// Measured live from the terminal, not the scroll view: a split pane resizes without the scroll
+	// view being laid out again, and a stale viewport would freeze every answer window at the old size.
 	let view: ScrollView | undefined;
-	const screenful = () => view?.viewportHeight ?? 24;
+	const dockRows = 8;
+	const screenful = () => Math.max(4, tui.terminal.rows - dockRows);
 	// The newest pair gets room to be read; older pairs shrink to a preview so one pair is easy to
 	// focus on and the rest stay scannable.
 	const height = (newest: boolean): ((reserve: number) => number) => {
-		if (!newest && config.olderLines !== "same") return () => config.olderLines as number;
-		if (config.answerLines !== "screen") return () => config.answerLines as number;
-		return (reserve) => screenful() - reserve;
+		const setting = newest || config.olderLines === "same" ? config.answerLines : config.olderLines;
+		if (typeof setting === "number") return () => setting;
+		if (setting === "screen") return (reserve) => screenful() - reserve;
+		// A share of the viewport, so the next pair stays in sight below the one being read.
+		const percent = Number.parseInt(setting, 10) / 100;
+		return (reserve) => Math.round(screenful() * percent) - reserve;
 	};
 	const window =
 		config.answerWindow === "screen"
@@ -466,7 +471,7 @@ const USAGE = [
 	"/reverse expand                  expand / collapse the newest answer         (alt+e)",
 	"                                 alt+, / alt+. scroll inside the answer",
 	"/reverse answer-window screen|off",
-	"/reverse answer-lines screen|3..200   height of the newest answer",
+	"/reverse answer-lines 70%|screen|3..200   height of the newest answer",
 	"/reverse older-lines same|3..200      height of answers in older pairs",
 	"/reverse follow-tail on|off      keep a streaming answer's last line in view",
 	"/reverse tail-margin 0..5        slack kept below that line",

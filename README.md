@@ -47,9 +47,12 @@ warning instead of half-applying.
 
 ## Long answers get one screenful
 
-The newest answer gets a screenful; **older pairs shrink to a 6-line preview**, so several
+The newest answer gets **70% of the pane**, so the next pair stays in sight below it; **older pairs
+shrink to a 6-line preview**, so several
 question/answer pairs fit on one screen and it stays easy to focus on one of them. Both heights are
-settings (`answer-lines`, `older-lines`).
+settings (`answer-lines`, `older-lines`). Heights are measured from the terminal on every frame, so
+splitting or resizing a tmux pane resizes the windows with it — down to a 5-line floor, below which
+the transcript simply scrolls.
 
 An answer longer than its height renders as a window anchored at its **end**, so the conclusion
 sits next to the question instead of a screen-and-a-half below it. A dim marker says how much is
@@ -72,7 +75,7 @@ transcript; the keyboard controls above work everywhere.
 | `order` | `newest-first` `oldest-first` | `newest-first` | transcript direction |
 | `status-bar` | `above-prompt` `below-prompt` | `above-prompt` | status bar side |
 | `spinner` | `below-prompt` `above-prompt` | `below-prompt` | where the working spinner and queued messages go |
-| `answer-lines` | `screen` or `3..200` | `screen` | height of the newest answer |
+| `answer-lines` | `70%`, `screen`, or `3..200` | `70%` | height of the newest answer |
 | `older-lines` | `same` or `3..200` | `6` | height of answers in older pairs |
 | `sticky-question` | `on` `off` | `on` | keep the question on screen once it scrolls away |
 | `turn-divider` | `on` `off` | `on` | rule between Q&A pairs |

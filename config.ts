@@ -27,8 +27,8 @@ export interface ReverseConfig {
 	spinner: "below-prompt" | "above-prompt";
 	/** Cap each answer at one screenful, anchored at its end, instead of letting it run on. */
 	answerWindow: "screen" | "off";
-	/** Height of the newest answer: a screenful, or a fixed number of lines. */
-	answerLines: "screen" | number;
+	/** Height of the newest answer: a share of the viewport ("70%"), a line count, or "screen". */
+	answerLines: "screen" | `${number}%` | number;
 	/** Height of answers in older pairs, so the stack stays scannable. */
 	olderLines: "same" | number;
 }
@@ -45,7 +45,7 @@ export const DEFAULTS: ReverseConfig = {
 	turnDivider: "on",
 	spinner: "below-prompt",
 	answerWindow: "screen",
-	answerLines: "screen",
+	answerLines: "70%",
 	olderLines: 6,
 };
 
@@ -97,7 +97,12 @@ export function sanitize(raw: unknown): ReverseConfig {
 	// "screen"/"same" or a line count; anything else falls back to the default.
 	const lines = <K extends "answerLines" | "olderLines">(key: K, keyword: string): ReverseConfig[K] => {
 		const value = input[key];
-		if (value === keyword) return value as ReverseConfig[K];
+		if (value === keyword || value === "screen") return value as ReverseConfig[K];
+		if (typeof value === "string" && /^\d{1,3}%$/.test(value)) {
+			const percent = Number.parseInt(value, 10);
+			if (percent >= 10 && percent <= 100) return value as ReverseConfig[K];
+			return DEFAULTS[key];
+		}
 		const count = Number(value);
 		return (Number.isInteger(count) && count >= 3 && count <= 200 ? count : DEFAULTS[key]) as ReverseConfig[K];
 	};
