@@ -1,5 +1,13 @@
 /** Divider label — no TUI imports, so `node test.mjs` can exercise it directly. */
 
+/** A clipped answer always reserves both marker rows, so the pair below it never jumps by a line. */
+export function windowEdgeLabels(start: number, hiddenBelow: number, wheelHint: string): [string, string] {
+	const above =
+		start > 0 ? `  ⋯ ${start} line${start === 1 ? "" : "s"} above · ${wheelHint} · alt+e expands` : "";
+	const below = hiddenBelow > 0 ? `  ⋯ ${hiddenBelow} below · wheel down to follow again` : "";
+	return [above, below];
+}
+
 /** "14:32 · 2h ago", or the gap when a turn follows a long pause. Empty stamp means unknown. */
 export function dividerLabel(stamp: number | undefined, previous: number | undefined, now: number): string {
 	if (stamp === undefined) return "time unknown";

@@ -114,6 +114,9 @@ older pairs a shorter preview instead). Heights are measured from the terminal o
 splitting or resizing a tmux pane resizes the windows with it — down to a 5-line floor, below which
 the transcript simply scrolls.
 
+A clipped answer always reserves one marker row above and below its text, even when one marker is
+blank at an edge. Inner scrolling therefore never moves the next Q&A pair by a line.
+
 An answer longer than its height renders as a window anchored at its **end**, so the conclusion
 sits next to the question instead of a screen-and-a-half below it. A dim marker says how much is
 hidden. The window follows the text while it streams, and stops following the moment you scroll — in the
