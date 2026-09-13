@@ -98,8 +98,10 @@ the transcript simply scrolls.
 
 An answer longer than its height renders as a window anchored at its **end**, so the conclusion
 sits next to the question instead of a screen-and-a-half below it. A dim marker says how much is
-hidden. The window follows the text while it streams, and stops following the moment you scroll
-inside it — scroll back to the bottom and it follows again.
+hidden. The window follows the text while it streams, and stops following the moment you scroll — in the
+answer or in the transcript, in either direction. Nothing pulls you back while a reply is still
+arriving; scroll back to where the stream is and following resumes, the way every chat client
+behaves.
 
 **Where the wheel goes is decided by the pointer**, like two panes side by side: on the **left half**
 of the terminal it scrolls *inside* the answer, on the **right half** it scrolls the transcript. No
