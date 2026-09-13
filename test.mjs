@@ -108,7 +108,7 @@ assert.equal(sanitize({ wheelChain: "on" }).wheelChain, "on");
 console.log("pi-reverse: wheel chain checks passed");
 
 // --- the seam is labelled with when the question below it was asked ---
-import { dividerLabel, windowEdgeLabels } from "./reverse-label.ts";
+import { dividerLabel, ruleTo, windowEdgeLabels } from "./reverse-label.ts";
 import { matchQuestionTimes, messageText, QuestionTimes } from "./turn-time.ts";
 const T = Date.parse("2026-09-13T08:00:00Z");
 assert.match(dividerLabel(T, undefined, T + 30_000), /just now/);
@@ -138,8 +138,14 @@ assert.match(inMiddle[1], /20 below/);
 const asked = windowEdgeLabels(0, 35, "wheel on the left half", true);
 assert.equal(asked[0], "");
 assert.match(asked[1], /35 more lines/);
-assert.match(asked[1], /alt\+e expands/);
+// alt+e expands the ANSWER, and the wheel hint rides the answer's marker: neither belongs here.
+assert.doesNotMatch(asked[1], /alt\+e expands/);
+assert.doesNotMatch(asked[1], /wheel on the/);
 assert.doesNotMatch(asked[1], /follow again/);
+// An unclipped question still gets a boundary, so the pair always reads as two halves.
+assert.equal(windowEdgeLabels(0, 0, "wheel on the left half", true)[1], "RULE");
+assert.match(ruleTo("RULE", 40), /^ {2}\u2508+$/);
+assert.match(ruleTo("⋯ 9 more lines", 40), /^ {2}⋯ 9 more lines \u2508+$/);
 const askedScrolled = windowEdgeLabels(12, 20, "wheel on the left half", true);
 assert.match(askedScrolled[0], /12 lines above/);
 assert.equal(askedScrolled.length, 2);

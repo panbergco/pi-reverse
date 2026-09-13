@@ -154,8 +154,18 @@ the transcript simply scrolls.
 
 **A long question cannot squeeze its answer.** The pair's height is split: the question takes at most
 `question-lines` of it (40% by default) and the answer keeps the rest. Before this, a 35-line paste
-left the answer at its 5-line floor. Each half clips independently with its own marker and its own
-inner scroll, so the wheel scrolls whichever half the pointer is over. A question rests at its FIRST
+left the answer at its 5-line floor. Each half clips independently and scrolls under the
+pointer, and a light rule divides them so a pair always reads as two parts:
+
+```text
+ the question, up to its share of the pair
+  ⋯ 35 more lines ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+  ⋯ 50 lines above · wheel on the left half · alt+e expands
+ the answer, holding the rest
+```
+
+The rule is drawn whether or not anything is folded, and carries only the count: the wheel hint and
+`alt+e` belong to the answer's own marker, and `alt+e` expands the answer, not the question. A question rests at its FIRST
 line (that is where reading it starts) while an answer rests at its last. `question-lines full`
 restores the old uncapped behaviour.
 
