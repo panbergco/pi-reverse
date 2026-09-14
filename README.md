@@ -184,8 +184,9 @@ behaves.
 **Where the wheel goes is decided by the pointer**, like two panes side by side: on the **left half**
 of the terminal it scrolls *inside* the answer, on the **right half** it scrolls the transcript. No
 mode, no focus — move the mouse and you are in the other scroll. Reaching the end of an answer
-**stops there** for one wheel event, so the transcript is not flung away mid-gesture; keep scrolling and
-it takes over (`wheel-chain on` hands over immediately). A question always hands back at its edges.
+**stops there** — the transcript is not dragged along behind it (`wheel-chain on` chains instead).
+A question always hands the wheel back at its own edges, and the other half of the pane always
+scrolls the transcript, so a window that will not move is never the only thing under the pointer.
 `wheel-zone right` swaps the sides, `full` gives the whole width to the answer, `off` leaves the
 wheel to pi.
 

@@ -55,18 +55,14 @@ export function nextTurnOffset(offsets: readonly number[], scrollTop: number, st
 /**
  * Who acts on a wheel event: the window under the pointer, or the transcript behind it.
  *
- * `wheel-chain off` exists so reaching the end of an answer does not fling the transcript away in
- * the middle of a gesture. Absorbing EVERY event at that edge does more than that: a window resting
- * at its edge under the pointer owns that half of the pane for good, and the reader cannot scroll
- * back to the prompt at all. One event is absorbed, and the rest pass through.
+ * `wheel-chain off` means the end of an answer is the END: the wheel stops there and the transcript
+ * is not dragged along behind it. That is the whole point of the setting, and letting events
+ * "eventually" pass through made the answer window feel like it leaked.
+ *
+ * The escape from a window that will not move is to scroll somewhere else — the other half of the
+ * pane, a question (which always hands back), or the keys. `wheel-chain on` chains everywhere.
  */
-export function wheelGoesTo(
-	moved: boolean,
-	clipped: boolean,
-	chains: boolean,
-	blocked: number,
-): "window" | "transcript" {
+export function wheelGoesTo(moved: boolean, clipped: boolean, chains: boolean): "window" | "transcript" {
 	if (moved) return "window";
-	if (!clipped || chains) return "transcript";
-	return blocked < 1 ? "window" : "transcript";
+	return clipped && !chains ? "window" : "transcript";
 }
