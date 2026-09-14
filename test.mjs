@@ -105,15 +105,14 @@ console.log("pi-reverse: wheel zone checks passed");
 assert.equal(sanitize({}).wheelChain, "off");
 assert.equal(sanitize({ wheelChain: "on" }).wheelChain, "on");
 
-// A window that cannot move must not own the wheel forever: one event is absorbed, the rest reach
-// the transcript. Without this the reader is trapped and cannot scroll back to the prompt.
+// `wheel-chain off` stops dead at a window's edge rather than dragging the transcript with it.
 import { wheelGoesTo } from "./turns.ts";
-assert.equal(wheelGoesTo(true, true, false, 0), "window");
-assert.equal(wheelGoesTo(false, true, false, 0), "window");   // first event at the edge: absorbed
-assert.equal(wheelGoesTo(false, true, false, 1), "transcript"); // and then it gets out of the way
-assert.equal(wheelGoesTo(false, true, false, 9), "transcript");
-assert.equal(wheelGoesTo(false, false, false, 0), "transcript"); // unclipped windows never hold it
-assert.equal(wheelGoesTo(false, true, true, 0), "transcript");   // chaining hands over immediately
+assert.equal(wheelGoesTo(true, true, false), "window");
+// The end of an answer is the END: no event passes through to the transcript behind it.
+assert.equal(wheelGoesTo(false, true, false), "window");
+// A window with nothing hidden never holds the wheel, and a chaining one hands it over at once.
+assert.equal(wheelGoesTo(false, false, false), "transcript");
+assert.equal(wheelGoesTo(false, true, true), "transcript");
 
 console.log("pi-reverse: wheel chain checks passed");
 

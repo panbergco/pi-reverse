@@ -310,8 +310,6 @@ class Windowed implements Component {
 	/** Set while this window's own state changed, so the mirror re-renders it even if off screen. */
 	dirty = true;
 
-	/** Consecutive wheel events that could not move this window — one is absorbed, the rest pass on. */
-	private blocked = 0;
 
 	/** Move the window by whole lines; returns false at either end so the transcript can take over. */
 	scrollByLines(delta: number): boolean {
@@ -414,12 +412,10 @@ class Windowed implements Component {
 		// the transcript does not take over mid-gesture unless chaining is switched on.
 		if (event.type === "wheel") {
 			if (!event.wheelDelta || !this.ownsWheel(event.x, event.width)) return undefined;
-			const moved = this.scrollByLines(event.wheelDelta);
-			this.blocked = moved ? 0 : this.blocked + 1;
-			// At an edge one event is absorbed so the gesture does not fling the transcript away, and
-			// everything after it passes through — otherwise a window resting at its edge under the
-			// pointer owns that half of the pane for good, and the prompt cannot be reached again.
-			return wheelGoesTo(moved, this.clipped, this.chain(), this.blocked - 1) === "window"
+			// The end of an answer is the end: the transcript is not dragged along behind it. A
+			// question hands the wheel back instead, and the other half of the pane always moves the
+			// transcript, so a window that will not move is never the only thing under the pointer.
+			return wheelGoesTo(this.scrollByLines(event.wheelDelta), this.clipped, this.chain()) === "window"
 				? { handled: true }
 				: undefined;
 		}
