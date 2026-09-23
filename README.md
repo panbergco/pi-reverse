@@ -1,45 +1,24 @@
 # pi-reverse
 
-> **Current release: v0.15** — Q&A turn stack, 70% answer windows, split inner/outer wheel,
-> correct timestamps on resumed sessions, stable pair geometry, and long-session caching.
+Reverse mode for the [pi coding agent](https://pi.dev): **the prompt pinned to the top**, Q&A pairs
+stacked **downward, newest first** — and each pair still reads normally, question then answer.
 
-Reverse mode for the [pi coding agent](https://pi.dev): **input pinned to the top**, Q&A pairs
-stacked **downward, newest first**, each pair still read normally — question, then its answer.
+> **v0.17.7 · tested with pi 0.87.1**, the current release (September 2026). Every feature below
+> works on stock pi — no fork and no patch. See [Compatibility](#compatibility).
 
-Named after Warp's *reverse mode*, which does the same for command blocks. This is the first one
-for an agent conversation: VS Code refused the equivalent request for Copilot Chat (issue #12321,
-closed out-of-scope, Dec 2025).
+Named after Warp's *reverse mode*, which does the same for command blocks. VS Code declined the
+equivalent request for Copilot Chat (issue #12321, closed as out of scope, December 2025).
 
 ```text
   [ status bar ]
-  [ input ]
-  ▲ Q-BETA: list numbers 1 to 60          ← sticky question while its answer scrolls
-  58
-  59
-  60
-  ──────────────────────────────────────  ← rule between pairs
-  Q-ALPHA: reply exactly: ALPHA-ANSWER
-  ALPHA-ANSWER
+  [ prompt ]
+  ━━━ 10:55 AM · 1m ago ━━━━━━━━━━━━━━━━━━━━━   ← seam: when the question below was asked
+  add a retry with backoff to fetchForecast
+  ────────────────────────────────────────────   ← where the question ends
+  ⋯ 24 lines above · wheel on the left half
+  …the end of its answer, in its own window…
+  ━━━ 2h later · 10:08 AM ━━━━━━━━━━━━━━━━━━━   ← the previous pair, and the pause before it
 ```
-
-The layout is a plain pi extension and survives `pi update`. Keyboard navigation works on stock pi;
-the mouse wheel inside an answer needs the small `ScrollView` patch linked below.
-
-## What changed since the first release
-
-The first build only moved the prompt and reversed individual messages. **v0.15** is a different,
-usable model:
-
-- **Q&A turns, not reversed messages** — newest pair first; every question still reads into its answer.
-- **Dynamic answer windows** — every long response gets 70% of the pane and its own inner scroll.
-- **Split-wheel navigation** — left half scrolls the answer; right half scrolls the conversation.
-- **Native follow behaviour** — scrolling away releases the live stream; returning resumes it.
-- **Labelled turn blocks** — heavy seams carry the question's real time, including resumed and
-  compacted sessions and repeated prompts such as `go`.
-- **Stable geometry** — inner scrolling never pushes the next Q&A pair down by a row.
-- **Existing sessions remain untouched** — the extension changes rendering, not session files.
-- **Long-session performance** — foreground spinner measured **4.9s → 18ms**; wheel repaint measured
-  **25–28ms** on a 1,000+ message session.
 
 ---
 
@@ -47,246 +26,184 @@ usable model:
 
 ### 1. Your eyes belong at the top of the screen
 
-The prompt lives at the bottom of a terminal because that is where a shell leaves the cursor, not
-because it is a good place to look. On a tall window you spend the day glancing down at the last
-two rows, and the taller the terminal the worse the angle — which is also why people size their
-terminal around the input instead of around the work.
+The prompt sits at the bottom of a terminal because that is where a shell leaves the cursor, not
+because it is a good place to look. On a tall window you spend the day glancing down at the last two
+rows, and the taller the terminal, the worse the angle.
 
-pi-reverse pins the input near the top. You read straight ahead, the box never moves while a reply
-streams, and the status bar sits with it.
+pi-reverse pins the prompt near the top. You read straight ahead, the prompt never moves while a
+reply streams, and the status bar sits with it.
 
 ![Prompt at the top, newest pair beneath it](docs/img/1-eye-level.png)
 
 ### 2. In a long session, the question is gone
 
-This is the part that actually hurts. A reply runs for 200 lines; by the time you are reading the
-end of it, the question that produced it left the screen long ago. Scroll back and you lose your
-place in the answer. Scroll forward and you lose the question again.
+A reply runs for a hundred lines; by the time you reach its end, the question that produced it has
+left the screen. Scroll back and you lose your place in the answer; scroll forward and you lose the
+question again.
 
-Below is a real session in stock pi: sixty lines into an answer, nothing on screen tells you what
-was asked, and the input box is at the very bottom.
+The same demo session in stock pi: the end of an answer, nothing on screen saying what was asked, and
+the prompt at the very bottom.
 
 ![Stock pi: an answer with no question in sight](docs/img/2-stock-lost.png)
 
 ### 3. Question and answer stay one block
 
-The same session in pi-reverse. Each turn is a unit: the question, then its answer capped at ~70%
-of the pane with `⋯ 135 lines above` marking what is folded, then a rule, then the previous turn.
-Two complete exchanges fit on one screen. Scroll inside an answer on the left half of the pane;
-scroll through the stack on the right half. Nothing loses its question.
+The same session with pi-reverse. Each turn is a unit, framed by a timestamped seam. A long pasted
+question is capped at its share of the pair (`⋯ 6 more lines`), the answer gets the rest in its own
+window (`⋯ 28 lines above`), and the previous pair follows — `07:43 AM · 3h ago`. Two complete
+exchanges fit on one screen, and nothing loses its question.
 
 ![pi-reverse: pairs kept together, newest first](docs/img/3-pairs-kept.png)
 
-Old sessions open like this too — `pi --session <file>` on a months-old transcript and it is
-suddenly scannable, pair by pair, without reading it bottom-up. The session file is never modified;
-this is display only.
+Old sessions open like this too: `pi --session <file>` on a months-old transcript and it is readable
+pair by pair. The session file is never modified; pi-reverse changes rendering only.
+
+*The screenshots are from a scripted demo project, recorded on stock pi 0.87.1.*
 
 ---
 
-
 ## Install
-
-From GitHub:
 
 ```bash
 pi install git:github.com/panbergco/pi-reverse
 ```
 
-Or from a local checkout:
-
-```bash
-pi install ~/Code/pi-reverse          # adds it to settings
-pi -e ~/Code/pi-reverse               # load once, nothing written
-```
-
-The installer sets up the extension and fullscreen mode in one step:
+or, to also switch pi to fullscreen mode in one step:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/panbergco/pi-reverse/main/install.sh | bash
 ```
 
-Requires fullscreen TUI mode: `{"tuiMode": "fullscreen"}` in `~/.pi/agent/settings.json`, or
-`pi --tui-mode fullscreen`. In regular mode pi renders into the terminal's own scrollback, which
-can only grow at the bottom — no extension can pin a top row there, and pi-reverse declines with a
-warning instead of half-applying.
+pi-reverse needs **fullscreen mode**: `{"tuiMode": "fullscreen"}` in `~/.pi/agent/settings.json`,
+or `pi --tui-mode fullscreen`. In regular mode pi writes into the terminal's own scrollback, which can
+only grow at the bottom, so no extension can pin anything to the top; pi-reverse declines with a
+warning rather than half-applying.
+
+## Compatibility
+
+| pi | layout, pairs, seams, keys | mouse wheel inside answers and questions |
+|---|---|---|
+| **0.87.1** (latest) | ✅ tested | ✅ tested |
+| 0.85.1 | ✅ tested | ✅ tested |
+| 0.84.x | ✅ layout observed; keys not re-tested | ❌ this release does not deliver mouse events into the transcript — use `alt+,` / `alt+.` |
+
+The 0.87.1 check covered: the layout applying without a warning, turn stacking and seams, the question
+split, answer windows, the inner wheel with its hard stops, the wheel over the prompt, keyboard
+navigation, and a streamed reply followed to its end.
 
 ## Moving around
 
+**Mouse** — the pointer decides, like two panes side by side:
+
+- **Left half** scrolls *inside* the answer or question under the pointer. At its end it stops; the
+  conversation behind it does not move.
+- **Right half** scrolls the conversation.
+- **Over the prompt**, the wheel scrolls a long prompt and stops at its first and last line. A prompt
+  that is already showing everything is left untouched, so the wheel can never alter what you typed.
+
+**Keys**
+
 | | |
 |---|---|
-| `alt+j` / `/reverse next` | top of the next (older) Q&A pair |
-| `alt+k` / `/reverse prev` | top of the previous pair — mid-pair it returns to that pair's question first |
+| `alt+j` / `/reverse next` | top of the next (older) pair |
+| `alt+k` / `/reverse prev` | top of the previous pair; mid-pair, back to its question first |
 | `alt+l` / `/reverse tail` | end of the answer being written |
 | `/reverse question` | back to the newest question |
-| `alt+,` / `alt+.` | scroll inside the newest answer's window |
-| `alt+e` / `/reverse expand` | show that answer at full height, or re-window it |
-| `alt+w` / `/reverse window` | turn answer windows on or off |
+| `alt+,` / `alt+.` | scroll inside the newest answer |
+| `alt+e` / `/reverse expand` | show that answer at full height, or window it again |
+| `alt+w` / `/reverse window` | answer windows on or off |
 
-## The seam between pairs carries a time
+## How a pair is laid out
 
-```text
-━━━ 04:19 AM · 1h ago ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+**The seam** above each pair carries when its question was asked (`10:55 AM · 1m ago`). After a long
+pause it says so instead (`2h later · 10:08 AM`), which is how you find where you picked a session
+back up. It is heavy and in the theme accent, with the time in bright white, so it outranks any border
+inside an answer; `divider-style line` gives a thin one. Resumed and compacted sessions are labelled
+correctly: each visible question is matched to its own record, including prompts repeated many times.
 
-Every pair is closed by a seam above **and** below it, so a turn reads as one block rather than as
-text that happens to be next to other text. The rule is labelled with when the question below it was
-asked. A border inside an answer never carries a time, so the seam cannot be confused with one.
+**The answer** gets 70% of the pane, so the next pair stays in sight below it. A longer answer shows
+its **end** — the conclusion sits next to the question — with a marker for what is folded above. While
+a reply streams the window follows it, and stops following the moment you scroll; scroll back to the
+end and following resumes. Heights are measured from the terminal every frame, so resizing a tmux
+pane resizes the windows with it.
 
-When a turn follows a long pause, the label says so instead (`4h later · 08:14`) — the moment where
-you picked the session back up becomes visible. A turn whose time cannot be established reads
-`time unknown` rather than guessing. Resumed and compacted sessions match each visible question to
-its session record by text (newest match first), rather than indexing a partial display into the
-full timestamp history.
+**A long question** takes at most `question-lines` of the pair (40% by default) and the answer keeps
+the rest, so a pasted log cannot squeeze the answer down to a few lines. The question shows its
+**first** lines, since that is where reading one starts, and a light rule marks where it ends.
 
-The rule is heavy and uses the theme accent; the time is bright white, so the seam outranks every
-border *inside* an answer. Use `divider-style line` for the thin version.
-
-Startup output (the banner, context and resource lists) is not a turn: it keeps its own order and
-gets no rules between its pieces.
-
-## Long answers get one screenful
-
-**Every answer gets 70% of the pane**, so each pair is one readable block and the next one stays in
-sight below it. Both heights are settings (`answer-lines` for all answers, `older-lines` to give
-older pairs a shorter preview instead). Heights are measured from the terminal on every frame, so
-splitting or resizing a tmux pane resizes the windows with it — down to a 5-line floor, below which
-the transcript simply scrolls.
-
-**A long question cannot squeeze its answer.** The pair's height is split: the question takes at most
-`question-lines` of it (40% by default) and the answer keeps the rest. Before this, a 35-line paste
-left the answer at its 5-line floor. Each half clips independently and scrolls under the
-pointer, and a light rule divides them so a pair always reads as two parts:
-
-```text
- the question, up to its share of the pair
-
-  ⋯ 35 more lines ──────────────────────────────────────────────────
-
-  ⋯ 50 lines above · wheel on the left half · alt+e expands
- the answer, holding the rest
-```
-
-The rule is drawn whether or not anything is folded, and carries only the count: the wheel hint and
-`alt+e` belong to the answer's own marker, and `alt+e` expands the answer, not the question. A question rests at its FIRST
-line (that is where reading it starts) while an answer rests at its last. `question-lines full`
-restores the old uncapped behaviour.
-
-A clipped answer always reserves one marker row above and below its text, even when one marker is
-blank at an edge. Inner scrolling therefore never moves the next Q&A pair by a line.
-
-An answer longer than its height renders as a window anchored at its **end**, so the conclusion
-sits next to the question instead of a screen-and-a-half below it. A dim marker says how much is
-hidden. The window follows the text while it streams, and stops following the moment you scroll — in the
-answer or in the transcript, in either direction. Nothing pulls you back while a reply is still
-arriving; scroll back to where the stream is and following resumes, the way every chat client
-behaves.
-
-**The prompt scrolls itself.** pi's editor clips a long prompt to about a third of the screen; the
-wheel over it now moves that window and stops at its first and last line, instead of falling through
-to the transcript and sliding the history away under a motionless pointer. A prompt that is showing
-everything it holds is left completely alone — the wheel is still swallowed, so the transcript never
-moves, but nothing is sent to the editor. `question-lines`-style clipping is what enables scrolling,
-never the wheel on its own.
-
-**Where the wheel goes is decided by the pointer**, like two panes side by side: on the **left half**
-of the terminal it scrolls *inside* the answer, on the **right half** it scrolls the transcript. No
-mode, no focus — move the mouse and you are in the other scroll. Reaching the end of an answer
-**stops there** — the transcript is not dragged along behind it (`wheel-chain on` chains instead).
-Both halves of a pair obey the same rule, so neither leaks into the transcript while the other
-holds; the other half of the pane is what scrolls the transcript.
-`wheel-zone right` swaps the sides, `full` gives the whole width to the answer, `off` leaves the
-wheel to pi.
-
-### The mouse wheel inside an answer needs a patched pi
-
-Stock pi never forwards mouse events to anything drawn inside the transcript: its `ScrollView`
-inherits `Container.handleMouse`, and alt-screen dispatch skips layout nodes that do. The keyboard
-controls above work everywhere; the wheel-inside-an-answer does not, until that one-line seam exists.
-
-The patch is 20 lines plus tests:
-
-- Fork with the patch: **https://github.com/panbergco/pi** — branch `fix/scrollview-mouse-forwarding`
-- The change, reviewable: **https://github.com/panbergco/pi/pull/1**
-- Upstream report: **https://github.com/earendil-works/pi/issues/9538** (waiting on a maintainer
-  `lgtm`; pi only accepts PRs from approved contributors)
-
-To run it:
-
-```bash
-git clone -b fix/scrollview-mouse-forwarding https://github.com/panbergco/pi.git pi-fork
-cd pi-fork && npm ci --ignore-scripts && npm run build
-node packages/coding-agent/dist/bundle/cli.js --tui-mode fullscreen -e ~/Code/pi-reverse
-```
-
-Your own pi install, sessions and settings are untouched — it is a separate binary reading the same
-agent directory.
+Scrolling inside either never moves the pair below it by a single row.
 
 ## Settings
 
-`/reverse` shows them all; every change applies immediately and persists to
-`<agent-dir>/pi-reverse.json`.
+`/reverse` lists them all; changes apply immediately and persist to `<agent-dir>/pi-reverse.json`.
 
 | option | values | default | what it does |
 |---|---|---|---|
-| `dock` | `top` `bottom` | `top` | which screen edge the prompt block sits on |
-| `order` | `newest-first` `oldest-first` | `newest-first` | transcript direction |
+| `dock` | `top` `bottom` | `top` | which screen edge the prompt sits on |
+| `order` | `newest-first` `oldest-first` | `newest-first` | conversation direction |
 | `status-bar` | `above-prompt` `below-prompt` | `above-prompt` | status bar side |
 | `spinner` | `below-prompt` `above-prompt` | `below-prompt` | where the working spinner and queued messages go |
-| `answer-lines` | `70%`, `screen`, or `3..200` | `70%` | height of a whole Q&A pair |
+| `answer-lines` | `70%`, `screen`, or `3..200` | `70%` | height of a whole pair |
 | `question-lines` | `full`, `40%`, or `3..200` | `40%` | most of that pair the question may take |
 | `older-lines` | `same` or `3..200` | `same` | height of answers in older pairs |
-| `wheel-zone` | `left` `right` `full` `off` | `left` | which half of the pane scrolls inside an answer |
-| `wheel-chain` | `on` `off` | `off` | pass the wheel to the transcript at an answer's end |
+| `wheel-zone` | `left` `right` `full` `off` | `left` | which half of the pane scrolls inside a pair |
+| `wheel-chain` | `on` `off` | `off` | hand the wheel to the conversation at a window's end |
 | `sticky-question` | `on` `off` | `on` | keep the question on screen once it scrolls away |
-| `turn-divider` | `on` `off` | `on` | rule between Q&A pairs |
-| `divider-time` | `on` `off` | `on` | stamp that rule with when the question was asked |
-| `divider-style` | `line` `heavy` | `heavy` | weight of that rule |
-| `follow-tail` | `on` `off` | `on` | chase a streaming answer instead of letting it grow past the fold |
+| `turn-divider` | `on` `off` | `on` | seam between pairs |
+| `divider-time` | `on` `off` | `on` | label the seam with when the question was asked |
+| `divider-style` | `line` `heavy` | `heavy` | weight of the seam |
+| `follow-tail` | `on` `off` | `on` | follow a streaming answer |
 | `tail-margin` | `0..5` | `1` | lines kept below the streaming line |
 | `pad-outer` | `0..5` | `1` | blank lines at the screen edge |
-| `pad-transient` | `0..5` | `1` | breathing room around the spinner |
+| `pad-transient` | `0..5` | `1` | space around the spinner |
 
-`/reverse flip` swaps top/bottom, `/reverse reset` restores defaults.
+`/reverse flip` swaps top and bottom; `/reverse reset` restores the defaults.
 
 ## How it works
 
-pi's fullscreen layout root is a `VStack [transcript, dock]` built from seven mounted regions
-(document, pending, status, widgets-above, editor, widgets-below, footer). pi-reverse rebuilds that
-root in the order you configure, and feeds the transcript a mirror container that groups the chat
-log into turns — a turn starts at each user question — and reverses the **groups**, never their
-contents.
+pi's fullscreen layout is a vertical stack of seven regions (transcript, pending messages, status,
+widgets above and below, editor, footer). pi-reverse rebuilds that stack in the order you configure,
+and gives the transcript a mirror that groups the chat into turns — a turn starts at each question —
+and reverses the **groups**, never their contents. It reads pi's state and never writes to it.
 
 ## Performance
 
-A long transcript is thousands of lines. Re-rendering all of it every frame is what made scrolling
-crawl, so off-screen turns keep the lines they produced last time and are rendered again as soon as
-they come near the viewport — nothing stale is ever on screen. Mouse hit-testing uses the layout
-from the last render instead of re-rendering to find the target.
+Cost per frame is proportional to what is on screen, not to the length of the session:
 
-Measured on a 1,165-component session at 245x59, wheel-to-repaint: **25-28 ms** median with
-pi-reverse, **45-73 ms** for stock pi on the same transcript.
+- Off-screen turns keep the lines they last rendered, and are rendered again before they can come into
+  view, so nothing stale is ever shown.
+- Mouse hit-testing uses the layout from the last frame instead of re-rendering to find the target.
+- The index that matches seams to their timestamps is built once and extended as the session grows.
 
-**Per-frame work is proportional to the screen, never to the session.** The seam timestamps are
-matched by question text, so a resumed transcript is labelled correctly — but that index is built
-once and extended as the session grows. Rebuilding it per frame (v0.14.0-v0.15.0) cost 65 ms of
-every repaint on a 9,269-question session; a streaming answer repaints ~24 times, so it was seconds
-per turn. Measured on that session: **80 ms -> 2.4 ms** per frame, **578 ms -> 38 ms** per submit.
+On a session with over 9,000 questions: **2.4 ms** per frame and **38 ms** of rendering per submitted
+message. Wheel-to-repaint on a 1,165-component session: **25–28 ms**, against 45–73 ms for stock pi.
 
 ## Known limits
 
-- **Leans on pi internals** (the seven mounted regions, and `UserMessageComponent` as the marker for
-  "a turn starts here"). If a pi release changes that shape, pi-reverse refuses to apply and prints
-  a warning rather than breaking the UI.
-- **Flipping resets the scroll position** — a fresh scroll view is built each time.
-- The startup "Update Available" notice renders its three lines reversed; it arrives after the
-  layout is applied, and pi adds it as separate children rather than one component.
-- Verified against pi 0.84.2 and 0.85.1.
+- **Depends on pi's internal layout** — the seven regions, and the user-message component as the start
+  of a turn. If a pi release changes that shape, pi-reverse refuses to apply and prints a warning
+  rather than breaking the screen.
+- **Flipping resets the scroll position**, because a fresh scroll view is built.
+- pi's startup "Update available" notice renders its lines in reverse order; it arrives as separate
+  pieces after the layout is applied.
 
 ## Tests
 
 ```bash
-node test.mjs      # layout order, turn grouping, jump targets, config validation
+node test.mjs    # 12 groups: layout order, turns, jumps, config, seams, timestamps, windows, wheel
 ```
+
+## History
+
+The first release moved the prompt and reversed individual messages. Since then:
+
+- **Pairs, not messages** — newest pair first, each still reading question then answer.
+- **Answer windows** with their own scroll, and **a pointer-split wheel**.
+- **Timestamped seams**, correct on resumed and compacted sessions.
+- **Long questions capped**, so they cannot squeeze their answer.
+- **Hard stops** at the end of every window, and **a prompt that scrolls itself**.
+- **Long-session performance**: the working spinner went from 4.9 s to 18 ms after Enter on a large
+  session, and per-frame work from 80 ms to 2.4 ms.
 
 ## Future ideas
 

@@ -53,6 +53,8 @@ Parked work for pi-reverse, with the evidence behind each. Nothing here is sched
 
 ## Upstream
 
-- `ScrollView` never forwards mouse events to its content — earendil-works/pi#9538, branch
-  `panbergco/pi:fix/scrollview-mouse-forwarding`. Without it the inner wheel cannot work at all.
-  Waiting on a maintainer `lgtm` before the PR can be opened.
+- **Resolved without an upstream change.** From pi 0.85.1 the layout dispatcher reaches components
+  inside a scroll view, and pi-reverse routes the event to the window under the pointer itself, so the
+  inner wheel works on stock pi (verified on 0.85.1 and 0.87.1). pi 0.84.x does not deliver the
+  event; there the keyboard controls are the way in. The patch proposed in earendil-works/pi#9538 is
+  no longer needed.
