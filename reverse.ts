@@ -602,13 +602,11 @@ function applyLayout(
 				content as Container,
 				fromTop,
 				() => config.wheelZone,
-				// A QUESTION ALWAYS HANDS THE WHEEL BACK AT ITS EDGES. `wheel-chain off` exists so that
-				// reaching the end of an ANSWER does not fling the transcript away mid-gesture — one
-				// window per turn, with ordinary rows around it to scroll from. Applying it to the
-				// question as well left the pointer's half covered by windows end to end, each swallowing
-				// the wheel at its own edge: the transcript could no longer be moved at all, and the
-				// prompt became unreachable without submitting.
-				fromTop ? () => true : () => config.wheelChain === "on",
+				// BOTH HALVES OF A PAIR OBEY THE SAME RULE. A question that handed the wheel back while
+				// the answer beside it stopped dead read as the question leaking: one end of the pair
+				// held the gesture and the other did not. `wheel-chain` decides for both, and the
+				// transcript is reached from the other half of the pane.
+				() => config.wheelChain === "on",
 				measure(newest),
 				dim,
 			);

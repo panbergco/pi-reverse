@@ -185,8 +185,8 @@ behaves.
 of the terminal it scrolls *inside* the answer, on the **right half** it scrolls the transcript. No
 mode, no focus — move the mouse and you are in the other scroll. Reaching the end of an answer
 **stops there** — the transcript is not dragged along behind it (`wheel-chain on` chains instead).
-A question always hands the wheel back at its own edges, and the other half of the pane always
-scrolls the transcript, so a window that will not move is never the only thing under the pointer.
+Both halves of a pair obey the same rule, so neither leaks into the transcript while the other
+holds; the other half of the pane is what scrolls the transcript.
 `wheel-zone right` swaps the sides, `full` gives the whole width to the answer, `off` leaves the
 wheel to pi.
 
