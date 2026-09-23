@@ -251,6 +251,8 @@ interface EditorLike {
 	getCursor?: () => { line: number };
 	getLines?: () => string[];
 	handleInput?: (data: string) => void;
+	/** Lines the editor actually drew last frame. Fewer than it holds means it is clipped. */
+	renderedVisibleLineCount?: number;
 }
 
 class PromptWheel implements Component {
@@ -283,7 +285,15 @@ class PromptWheel implements Component {
 		const lines = editor.getLines?.() ?? [];
 		// The wheel owns the prompt whether or not there is anywhere to go: at either end it stops
 		// there, and the transcript behind it stays where the reader left it.
-		if (!delta || cursor === undefined || lines.length <= 1) return { handled: true };
+		//
+		// NOTHING IS SYNTHESISED UNLESS THE PROMPT IS ACTUALLY CLIPPED. Moving the cursor is how a
+		// clipped prompt scrolls, but a cursor key is also how pi recalls an earlier prompt, and a
+		// wheel that can reach that path can replace a draft the operator never touched — reported
+		// live, on a prompt that was empty. A prompt showing everything it holds has nothing to
+		// scroll, so there is no reason to send it anything, and now no way to.
+		const visible = editor.renderedVisibleLineCount ?? 0;
+		const clipped = visible > 0 && lines.length > visible;
+		if (!delta || !clipped || cursor === undefined) return { handled: true };
 		const up = delta < 0;
 		const room = up ? cursor.line : lines.length - 1 - cursor.line;
 		for (let i = 0; i < Math.min(Math.abs(delta), room); i++) {

@@ -183,7 +183,10 @@ behaves.
 
 **The prompt scrolls itself.** pi's editor clips a long prompt to about a third of the screen; the
 wheel over it now moves that window and stops at its first and last line, instead of falling through
-to the transcript and sliding the history away under a motionless pointer.
+to the transcript and sliding the history away under a motionless pointer. A prompt that is showing
+everything it holds is left completely alone — the wheel is still swallowed, so the transcript never
+moves, but nothing is sent to the editor. `question-lines`-style clipping is what enables scrolling,
+never the wheel on its own.
 
 **Where the wheel goes is decided by the pointer**, like two panes side by side: on the **left half**
 of the terminal it scrolls *inside* the answer, on the **right half** it scrolls the transcript. No
