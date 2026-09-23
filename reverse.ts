@@ -228,6 +228,70 @@ class Reversed extends Container {
 	}
 }
 
+/**
+ * The prompt scrolls itself under the wheel, and never lets go of it.
+ *
+ * pi's editor answers `undefined` for a wheel event, so the transcript — registered as the primary
+ * scroll view — caught every turn of the wheel made over the prompt, and the history under the
+ * pointer slid away while the pointer sat still. The prompt is not the transcript, and a dock is
+ * not a scroll surface.
+ *
+ * The editor already clips a long prompt to about a third of the screen and follows the cursor, so
+ * the cursor IS its scroll position: `render()` drags the offset back to the cursor line on every
+ * frame, and an offset set from outside would be undone before it was seen. Moving the cursor by
+ * whole lines — through the editor's own key handling, never its internals — scrolls it in the one
+ * way that survives the next frame.
+ *
+ * It stops at the first and last line instead of passing the rest of the gesture on, and it never
+ * steps off the first line: up-arrow there is how pi recalls earlier prompts, and a wheel must not
+ * start rewriting what somebody has typed.
+ */
+interface EditorLike {
+	handleMouse?: (e: TuiMouseEvent) => unknown;
+	getCursor?: () => { line: number };
+	getLines?: () => string[];
+	handleInput?: (data: string) => void;
+}
+
+class PromptWheel implements Component {
+	constructor(private readonly editor: Component) {}
+
+	render(width: number): string[] {
+		return this.editor.render(width);
+	}
+
+	invalidate(): void {
+		(this.editor as { invalidate?: () => void }).invalidate?.();
+	}
+
+	/** The region is a container; the editor itself sits somewhere inside it. */
+	private static find(node: unknown): EditorLike | undefined {
+		const candidate = node as EditorLike & { children?: unknown[] };
+		if (typeof candidate?.getCursor === "function" && typeof candidate?.handleInput === "function") return candidate;
+		for (const child of candidate?.children ?? []) {
+			const found = PromptWheel.find(child);
+			if (found) return found;
+		}
+		return undefined;
+	}
+
+	handleMouse(event: TuiMouseEvent) {
+		const editor = PromptWheel.find(this.editor) ?? ({} as EditorLike);
+		if (event.type !== "wheel") return (this.editor as { handleMouse?: Function }).handleMouse?.(event) as never;
+		const delta = event.wheelDelta ?? 0;
+		const cursor = editor.getCursor?.();
+		const lines = editor.getLines?.() ?? [];
+		// The wheel owns the prompt whether or not there is anywhere to go: at either end it stops
+		// there, and the transcript behind it stays where the reader left it.
+		if (!delta || cursor === undefined || lines.length <= 1) return { handled: true };
+		const up = delta < 0;
+		const room = up ? cursor.line : lines.length - 1 - cursor.line;
+		for (let i = 0; i < Math.min(Math.abs(delta), room); i++) {
+			editor.handleInput?.(up ? "\x1b[A" : "\x1b[B");
+		}
+		return { handled: true };
+	}
+}
 /** Gives a region fixed breathing room on both sides — and zero height when it is empty. */
 class Padded implements Component {
 	private lead = 0;
@@ -645,7 +709,7 @@ function applyLayout(
 		if (name === "pending" || name === "status") {
 			return { component: new Padded(region[name], config.padTransient), shrink: 1 as const, minSize: 0 };
 		}
-		if (name === "editor") return { component: region.editor, shrink: 1 as const, minSize: 3 };
+		if (name === "editor") return { component: new PromptWheel(region.editor as never), shrink: 1 as const, minSize: 3 };
 		if (name === "footer") return { component: region.footer, shrink: 1 as const, minSize: 1 };
 		return { component: region[name], shrink: 1 as const, minSize: 0 };
 	};

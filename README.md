@@ -181,6 +181,10 @@ answer or in the transcript, in either direction. Nothing pulls you back while a
 arriving; scroll back to where the stream is and following resumes, the way every chat client
 behaves.
 
+**The prompt scrolls itself.** pi's editor clips a long prompt to about a third of the screen; the
+wheel over it now moves that window and stops at its first and last line, instead of falling through
+to the transcript and sliding the history away under a motionless pointer.
+
 **Where the wheel goes is decided by the pointer**, like two panes side by side: on the **left half**
 of the terminal it scrolls *inside* the answer, on the **right half** it scrolls the transcript. No
 mode, no focus — move the mouse and you are in the other scroll. Reaching the end of an answer
