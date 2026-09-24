@@ -3,13 +3,13 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/panbergco/pi-reverse/main/install.sh | bash
 #
-# Adds the extension to pi's packages and turns on fullscreen mode, which it needs.
+# Installs the extension from npm and turns on fullscreen mode, which it needs.
 # Nothing else is touched; the previous settings are backed up next to the file.
 set -euo pipefail
 
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 SETTINGS="$AGENT_DIR/settings.json"
-SOURCE="git:github.com/panbergco/pi-reverse"
+SOURCE="npm:pi-reverse"
 
 command -v pi >/dev/null || { echo "pi is not installed"; exit 1; }
 
@@ -19,21 +19,30 @@ if [ -n "$version" ] && [ "$(printf '%s\n0.85.1\n' "$version" | sort -V | head -
 	echo "note: pi $version does not deliver mouse events into the conversation; the wheel inside"
 	echo "      answers needs pi 0.85.1 or newer. Keyboard controls work either way."
 fi
+
 [ -f "$SETTINGS" ] || { mkdir -p "$AGENT_DIR"; echo '{}' > "$SETTINGS"; }
 cp "$SETTINGS" "$SETTINGS.before-pi-reverse"
 
-python3 - "$SETTINGS" "$SOURCE" <<'PY'
+# Fullscreen on, and an earlier install from GitHub dropped so npm does not load it a second time.
+# Any other pi-reverse entry, such as a local checkout, is kept.
+python3 - "$SETTINGS" <<'SETTINGS_PY'
 import json, sys
-path, source = sys.argv[1], sys.argv[2]
+path = sys.argv[1]
 settings = json.load(open(path))
 packages = settings.setdefault("packages", [])
-if not any(source in str(entry) for entry in packages):
-    packages.append(source)
+packages[:] = [p for p in packages if str(p) != "git:github.com/panbergco/pi-reverse"]
 mode = settings.get("tuiMode")
 settings["tuiMode"] = "fullscreen"
 json.dump(settings, open(path, "w"), indent=2)
-print(f"packages: {len(packages)} · tuiMode: {mode or 'unset'} -> fullscreen")
-PY
+print(f"tuiMode: {mode or 'unset'} -> fullscreen")
+SETTINGS_PY
+
+# `pi install` downloads the package. Listing it in settings alone does not.
+if grep -q 'pi-reverse' "$SETTINGS"; then
+	echo "pi-reverse is already configured here; left as it is."
+else
+	pi install "$SOURCE"
+fi
 
 cat <<'MSG'
 
