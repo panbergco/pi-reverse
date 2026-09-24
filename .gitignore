@@ -2,3 +2,7 @@ node_modules/
 .scratch/
 
 .pi/
+
+# Secrets — never commit
+.env
+.npmrc
