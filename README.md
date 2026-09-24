@@ -209,4 +209,4 @@ The first release moved the prompt and reversed individual messages. Since then:
 
 ## Future ideas
 
-Parked work, the research behind it, and who else has asked for this: [IDEAS.md](IDEAS.md).
+Parked work, the research behind it, and who else has asked for this: [IDEAS.md](https://github.com/panbergco/pi-reverse/blob/main/IDEAS.md).
