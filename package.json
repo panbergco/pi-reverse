@@ -1,20 +1,43 @@
 {
 	"name": "pi-reverse",
 	"version": "0.17.7",
-	"description": "Reverse mode for pi: prompt pinned to the top, Q&A pairs stacked newest first, jump between pairs.",
+	"description": "Reverse mode for pi: the prompt pinned to the top, Q&A pairs stacked newest first, long answers and questions in their own scrollable windows.",
 	"type": "module",
 	"keywords": [
-		"pi",
 		"pi-package",
+		"pi",
 		"pi-extension",
 		"pi-coding-agent",
 		"tui",
 		"layout"
 	],
 	"license": "MIT",
+	"author": "panbergco",
+	"homepage": "https://github.com/panbergco/pi-reverse#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/panbergco/pi-reverse.git"
+	},
+	"bugs": {
+		"url": "https://github.com/panbergco/pi-reverse/issues"
+	},
+	"files": [
+		"reverse.ts",
+		"config.ts",
+		"turns.ts",
+		"reverse-label.ts",
+		"turn-time.ts",
+		"README.md",
+		"LICENSE"
+	],
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
 	"pi": {
 		"extensions": [
 			"./reverse.ts"
-		]
+		],
+		"image": "https://raw.githubusercontent.com/panbergco/pi-reverse/main/docs/img/3-pairs-kept.png"
 	}
 }

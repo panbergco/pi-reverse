@@ -33,7 +33,7 @@ rows, and the taller the terminal, the worse the angle.
 pi-reverse pins the prompt near the top. You read straight ahead, the prompt never moves while a
 reply streams, and the status bar sits with it.
 
-![Prompt at the top, newest pair beneath it](docs/img/1-eye-level.png)
+![Prompt at the top, newest pair beneath it](https://raw.githubusercontent.com/panbergco/pi-reverse/main/docs/img/1-eye-level.png)
 
 ### 2. In a long session, the question is gone
 
@@ -44,7 +44,7 @@ question again.
 The same demo session in stock pi: the end of an answer, nothing on screen saying what was asked, and
 the prompt at the very bottom.
 
-![Stock pi: an answer with no question in sight](docs/img/2-stock-lost.png)
+![Stock pi: an answer with no question in sight](https://raw.githubusercontent.com/panbergco/pi-reverse/main/docs/img/2-stock-lost.png)
 
 ### 3. Question and answer stay one block
 
@@ -53,7 +53,7 @@ question is capped at its share of the pair (`⋯ 6 more lines`), the answer get
 window (`⋯ 28 lines above`), and the previous pair follows — `07:43 AM · 3h ago`. Two complete
 exchanges fit on one screen, and nothing loses its question.
 
-![pi-reverse: pairs kept together, newest first](docs/img/3-pairs-kept.png)
+![pi-reverse: pairs kept together, newest first](https://raw.githubusercontent.com/panbergco/pi-reverse/main/docs/img/3-pairs-kept.png)
 
 Old sessions open like this too: `pi --session <file>` on a months-old transcript and it is readable
 pair by pair. The session file is never modified; pi-reverse changes rendering only.
@@ -65,8 +65,10 @@ pair by pair. The session file is never modified; pi-reverse changes rendering o
 ## Install
 
 ```bash
-pi install git:github.com/panbergco/pi-reverse
+pi install npm:pi-reverse
 ```
+
+or straight from GitHub: `pi install git:github.com/panbergco/pi-reverse`
 
 or, to also switch pi to fullscreen mode in one step:
 
